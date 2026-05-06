@@ -1,0 +1,66 @@
+name: Macro - Credit Stress Brief
+
+on:
+  workflow_dispatch:
+  schedule:
+    # KST 월요일 08:00 = UTC 일요일 23:00 (war보다 1시간 후)
+    - cron: "0 23 * * SUN"
+
+jobs:
+  credit-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Prepare prompt with current date
+        run: |
+          TODAY=$(date -u +%Y-%m-%d)
+          sed "s/{{TODAY}}/$TODAY/g" prompts/credit.md > prompt.txt
+          echo "--- Prompt prepared (first 500 chars) ---"
+          head -c 500 prompt.txt
+          echo ""
+          echo "--- Total length: $(wc -c < prompt.txt) chars ---"
+
+      - name: Run Claude analysis
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          set -euo pipefail
+          cat prompt.txt | claude -p \
+            --permission-mode bypassPermissions \
+            --max-turns 50 \
+            --output-format text \
+            > claude_output.txt 2> claude_stderr.txt || {
+              echo "Claude exit code: $?"
+              echo "--- stderr ---"
+              cat claude_stderr.txt || true
+              echo "--- partial stdout ---"
+              cat claude_output.txt || true
+              exit 1
+            }
+          echo "--- Output length: $(wc -c < claude_output.txt) chars ---"
+          echo "--- First 500 chars ---"
+          head -c 500 claude_output.txt
+          echo ""
+
+      - name: Send to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          chmod +x scripts/send_telegram.sh
+          HEADER="💳 [Credit Stress Brief] $(date -u +%Y-%m-%d) UTC"
+          {
+            echo "$HEADER"
+            echo ""
+            cat claude_output.txt
+          } | ./scripts/send_telegram.sh
