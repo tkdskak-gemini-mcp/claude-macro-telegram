@@ -3,8 +3,8 @@ name: Macro - Credit Stress Brief
 on:
   workflow_dispatch:
   schedule:
-    # KST 매일 08:00 = UTC 매일 23:00 (war보다 1시간 후)
-    - cron: "0 23 * * *"
+    # KST 평일 08:00 = UTC 일~목 23:00 (KST 월~금 아침)
+    - cron: "0 23 * * 0-4"
 
 jobs:
   credit-brief:

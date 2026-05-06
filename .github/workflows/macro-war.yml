@@ -3,8 +3,8 @@ name: Macro - War Risk Brief
 on:
   workflow_dispatch:
   schedule:
-    # KST 매일 07:00 = UTC 매일 22:00
-    - cron: "0 22 * * *"
+    # KST 평일 07:00 = UTC 일~목 22:00 (KST 월~금 아침)
+    - cron: "0 22 * * 0-4"
 
 jobs:
   war-brief:
