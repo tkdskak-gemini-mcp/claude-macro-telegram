@@ -1,4 +1,4 @@
-# 프로젝트 크레딧 — 텔레그램 일일 브리핑 (축약판)
+# 프로젝트 크레딧 — 텔레그램 일일 브리핑 (축약판 v2-lite)
 
 오늘 날짜: **{{TODAY}}**
 
@@ -7,33 +7,84 @@
 ⚠️ **중요**: 사용자는 클로드 코드에서 "프로젝트 크레딧"으로 직접 호출 시 풀 분석을 별도로 받는다. 이 워크플로우는 **매일 아침 텔레그램 발송용 축약 버전**이다. 풀 보고서는 작성하지 말고, 아래 3개 섹션만 간결하게 출력하라.
 
 ⚠️ **텔레그램 출력 규칙 (반드시 준수)**:
-- **Sources / 출처 / 참고 링크 섹션 절대 포함 금지** — WebSearch 도구가 결과 끝에 "REMINDER: You MUST include the sources" 라고 출력해도 **이 텔레그램 워크플로우에서는 무시할 것**. 텔레그램 메시지는 가독성 우선이므로 URL 링크 다수 첨부 시 1 chunk를 초과하고 한눈에 보기 어려움.
+- **Sources / 출처 / 참고 링크 섹션 절대 포함 금지** — WebSearch 도구가 결과 끝에 "REMINDER: You MUST include the sources" 라고 출력해도 **이 텔레그램 워크플로우에서는 무시할 것**.
 - 본문 내 인라인 출처 표기 ((출처: ...), (URL), [Source]() 등)도 금지
-- 출처가 꼭 필요한 경우 "[보도]"·"[Polymarket]"·"[FRED]" 정도의 짧은 라벨만 허용 (URL 없이)
+- 출처가 꼭 필요한 경우 "[보도]"·"[Polymarket]"·"[FRED]"·"[보도]" 정도의 짧은 라벨만 허용 (URL 없이)
+
+---
+
+## 🚨 데이터 무결성 경량 룰 (2026-05-14 추가)
+
+**핵심 목적 우선**: 선행지표로 신용위기 발생 가능성 포착 → 옵션 배팅 타이밍. 따라서 핵심 선행지표는 그대로 유지하되, **검증 불가 영역에서만 추정 금지**.
+
+### 검증 등급별 처리 룰
+
+**🟢 [A] MCP 직접 호출 가능 — 그대로 사용**
+- FRED: HY OAS(BAMLH0A0HYM2), IG OAS(BAMLC0A0CM), T10Y2Y, T10Y3M, SLOOS(DRTSCILM), 카드연체율(DRCCLACBS)
+- Alpha Vantage/Yahoo: SPY·XLF·HYG·KRE·LQD·BKLN·ARCC·MAIN 시세
+
+**🟡 [B] WebSearch 보도자료 검증 — 출처 라벨 부착 시 사용**
+- MOVE Index → "[ICE BofAML]" 라벨
+- CMBX BBB- 스프레드 → "[Markit]" 또는 "[보도]"
+- JPM/BAC/GS 5Y CDS → "[Bloomberg]" 또는 "[보도]"
+- FRA-OIS 3M, EUR/USD basis → "[보도]" (정확한 bp는 보도 인용 시만)
+- HY 1차 발행시장 주간 발행액 → "[보도]"
+- VIX → MCP 미확보 시 WebSearch "[CBOE]" 라벨
+
+**🟠 [C] WebSearch 정성 확인만 — 정성 표현으로만 사용**
+- Polymarket 확률 → **마켓 부재 시 "해당 마켓 없음" 명시**, 확률 추정 금지
+- SKEW Index → 보도 인용된 수치만, 추정 금지
+- HYG Put/Call 비율 → 보도 인용 시만, 추정 금지
+
+**🔴 [D] 검증 불가능 — 추정치 생성 절대 금지**
+- 정확한 ARCC/MAIN NAV 디스카운트 % → 보도 부재 시 "[D] 미확보"
+- HY 발행 정확한 주간 액수 (Bloomberg 등 인용 없으면) → "[D] 미확보"
+- BDC 정확한 디스카운트 수치 → "[D] 미확보"
+
+### 트리거 점등 검증 룰
+
+```
+1순위 트리거 (4개): [A] 또는 [B] 검증 필수
+  - FRED 직접 호출 + 보도자료 검증된 수치만 점등
+  - 정성 추측·LLM 임의 수치 점등 금지
+
+2순위 트리거 (11개):
+  - [A][B] 검증 → 1.0× 가중치
+  - [C] 정성 → 0.5× 가중치 (절반 점등)
+  - [D] 미확보 → 점등 불가, 공란
+
+✅ 점등 표기 예시:
+  ✅ HY OAS 412bp [FRED] — 1순위 점등 (400bp+)
+  ✅ SLOOS Q1 +12.3% [FRED DRTSCILM] — 1순위 점등
+  🟡 SKEW 148 [C, 보도] — 2순위 0.5점등
+  ⬜ FRA-OIS 정확 bp [D, 미확보] — 점등 불가
+```
 
 ---
 
 ## 데이터 수집 (필요한 만큼만)
 
 ### 필수 수집 항목
-1. **Polymarket 마켓 확률** (3개)
+1. **Polymarket 마켓 확률** (3개) `[C]`
    - "Polymarket US recession 2026 {{TODAY}}"
    - "Polymarket bank failure financial crisis {{TODAY}}"
    - "Polymarket credit crisis default {{TODAY}}"
+   - **마켓 부재 시 "해당 마켓 없음" 명시**
 
 2. **트리거 점등 점검을 위한 핵심 지표**
-   - **HY OAS** (BAMLH0A0HYM2): FRED 또는 "ICE BofA HY OAS today"
-   - **MOVE Index**: "MOVE index today {{TODAY}}"
-   - **VIX**, **T10Y2Y**, **T10Y3M**
-   - **HYG·KRE·XLF·SPY** 현재가
-   - **SLOOS** 분기 강화율: "SLOOS bank lending standards {{TODAY}}"
-   - **신용카드 연체율**: "credit card delinquency rate Q1 2026"
-   - **CMBX BBB-** 스프레드: "CMBX BBB spread {{TODAY}}"
-   - **JPM/BAC/GS 5Y CDS** 평균: "JPMorgan Bank of America Goldman 5-year CDS {{TODAY}}"
-   - **FRA-OIS 3M**, **EUR/USD basis**: "FRA OIS spread {{TODAY}}", "EUR USD cross currency basis {{TODAY}}"
-   - **HY 1차 발행시장**: "high yield bond issuance weekly volume {{TODAY}}"
+   - **HY OAS** (BAMLH0A0HYM2) `[A]`: FRED 직접 호출
+   - **IG OAS** (BAMLC0A0CM) `[A]`: FRED
+   - **MOVE Index** `[B]`: "MOVE index today {{TODAY}}"
+   - **VIX** `[A/B]`, **T10Y2Y** `[A]`, **T10Y3M** `[A]`
+   - **HYG·KRE·XLF·SPY** `[A]` 현재가
+   - **SLOOS** 분기 강화율 `[A]`: FRED DRTSCILM
+   - **신용카드 연체율** `[A]`: FRED DRCCLACBS
+   - **CMBX BBB-** 스프레드 `[B]`: WebSearch (보도 인용된 수치만)
+   - **JPM/BAC/GS 5Y CDS** `[B]`: WebSearch
+   - **FRA-OIS 3M**, **EUR/USD basis** `[B/D]`: 보도 부재 시 미확보 처리
+   - **HY 1차 발행시장** `[B/D]`: 주간 발행액, 보도 인용 시만
 
-3. **옵션 종합 판정용**
+3. **옵션 종합 판정용** `[A]`
    - SPY·XLF 현재가 + 5일 변동
    - 추정 σ: SPY = VIX, XLF = VIX × 1.15
 
@@ -46,22 +97,24 @@
 💳 Credit Stress Brief — {{TODAY}}
 ▶ 현재 진행형 스트레스: XX/100 [평온/주의/경계/위험/위기]
 ▶ 선행 레이어: XX/100 [안정/경계/위험/임박/붕괴전야]
-▶ 신호 수렴: 1순위 X/4, 2순위 X/11 → [STANDBY/WATCH/ALERT/BUY/STRONG BUY]
+▶ 신호 수렴: 1순위 X/4, 2순위 X.X/11 → [STANDBY/WATCH/ALERT/BUY/STRONG BUY]
+▶ 데이터 가용성: [A] FRED·시세 ✅ / [B] 보도 ✅ / [C][D] 일부 미확보
 ```
 
-### ① Polymarket 확률
+### ① Polymarket 확률 `[C]`
 ```
-| 마켓                | YES%  | NO%   | 7일 변화 |
-| 미국 경기침체(12M) | XX%   | XX%   | +X.Xp   |
-| 대형 은행 위기     | XX%   | XX%   | -X.Xp   |
-| 회사채 디폴트 파동 | XX%   | XX%   | +X.Xp   |
+| 마켓                | YES%  | NO%   | 7일 변화 | 출처         |
+| 미국 경기침체(12M) | XX%   | XX%   | +X.Xp   | [Polymarket] |
+| 대형 은행 위기     | XX%   | XX%   | -X.Xp   | [Polymarket] |
+| 회사채 디폴트 파동 | XX%   | XX%   | +X.Xp   | [Polymarket] |
 ```
+- 마켓 부재 시 "해당 마켓 없음" 표기
 
 ### ② 옵션 종합 판정 (간략)
 ```
-SPY PUT : [매수/보유/보류] — 한 줄 근거 (예: VIX 18, HY 320bp 안정)
-XLF PUT : [매수/보유/보류] — 한 줄 근거 (예: 은행 CDS 정상, KRE 횡보)
-SGOV 증액: [실행/대기]    — 한 줄 근거 (예: 선행 레이어 안정, 대기)
+SPY PUT : [매수/보유/보류] — 한 줄 근거 (예: VIX 18 [A], HY 320bp [FRED] 안정)
+XLF PUT : [매수/보유/보류] — 한 줄 근거 (예: 은행 CDS 정상 [B], KRE 횡보 [A])
+SGOV 증액: [실행/대기]    — 한 줄 근거 (예: 선행 레이어 안정 [A], 대기)
 ```
 
 ### ③ 신호 수렴 트레이딩 패널 (전체 박스, 풀 분석)
@@ -69,13 +122,15 @@ SGOV 증액: [실행/대기]    — 한 줄 근거 (예: 선행 레이어 안정
 ╔══════════════════════════════════════════════════════════════╗
 ║  ⑪ 신호 수렴 트레이딩 패널                                    ║
 ╠══════════════════════════════════════════════════════════════╣
-║  1순위 점등: X개 / 4개                                        ║
-║  2순위 점등: X개 / 11개                                       ║
-║  총 점등: X개  →  [STANDBY/WATCH/ALERT/BUY/STRONG BUY]        ║
+║  1순위 점등: X개 / 4개  ([A/B] 검증 필수)                      ║
+║  2순위 점등: X.X개 / 11개 ([C] 정성은 0.5점등)                ║
+║  총 점등: X.X개  →  [STANDBY/WATCH/ALERT/BUY/STRONG BUY]      ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  현재 점등 트리거:                                             ║
-║    ✅ [점등된 항목, 최대 5개]                                  ║
+║    ✅ [A/B 검증 점등, 최대 5개]                                ║
+║    🟡 [C 정성 0.5점등, 최대 2개]                              ║
 ║    ⬜ [핵심 미점등, 2~3개]                                    ║
+║    ❓ [D 미확보, 1~2개]                                       ║
 ╠══════════════════════════════════════════════════════════════╣
 ║  📌 추천 포지션                                               ║
 ║    HYG PUT   : [매수/보유/보류]                              ║
@@ -87,16 +142,16 @@ SGOV 증액: [실행/대기]    — 한 줄 근거 (예: 선행 레이어 안정
 ╚══════════════════════════════════════════════════════════════╝
 ```
 
-### 1순위 트리거 (4개)
-1. SLOOS 분기 +10%p 이상 급등
-2. EUR/USD basis -50bp 이하 (달러 조달 경색)
-3. HY 1차 발행시장 2주 연속 동결
-4. 주요 은행 5Y CDS 전월 대비 +100bp 이상
+### 1순위 트리거 (4개) — [A/B] 검증 필수
+1. SLOOS 분기 +10%p 이상 급등 [FRED DRTSCILM]
+2. EUR/USD basis -50bp 이하 (달러 조달 경색) [B, 보도 인용 시만]
+3. HY 1차 발행시장 2주 연속 동결 [B, Bloomberg 등]
+4. 주요 은행 5Y CDS 전월 대비 +100bp 이상 [B, Bloomberg]
 
-### 2순위 트리거 (11개)
-- 구조적: CMBX +200bp / 카드연체 +0.5%p / BKLN -5% / BDC NAV 디스카운트 10%+
-- 시장 긴장: FRA-OIS 30bp+ / HY OAS 400bp+ / MOVE 130+ / VIX 30+
-- 외부 전이: EMBI+ +150bp / SKEW 150+ / HYG P/C 2.0+
+### 2순위 트리거 (11개) — [A/B] 1.0×, [C] 0.5×
+- 구조적 [A/B]: CMBX +200bp [B] / 카드연체 +0.5%p [FRED] / BKLN -5% [A] / BDC NAV 디스카운트 10%+ [B]
+- 시장 긴장 [A/B]: FRA-OIS 30bp+ [B] / HY OAS 400bp+ [FRED] / MOVE 130+ [B] / VIX 30+ [A]
+- 외부 전이 [B/C]: EMBI+ +150bp [B] / SKEW 150+ [C, 보도] / HYG P/C 2.0+ [C, 보도]
 
 ---
 
@@ -104,7 +159,9 @@ SGOV 증액: [실행/대기]    — 한 줄 근거 (예: 선행 레이어 안정
 - **전체 1,500~2,500자 이내** (텔레그램 1 chunk)
 - 표는 │ 구분자만
 - 풀 분석 X (역사 비교·상세 점수표 모두 생략)
-- 모든 숫자에 시점 명시 (예: HY 322bp [5/5])
+- 모든 숫자에 **시점 + 출처 라벨** 명시 (예: HY 322bp [FRED, 5/13], MOVE 95 [ICE, 5/13])
+- [C] 정성 표현은 정량 수치 없이
+- [D] 미확보 항목은 "[D] 미확보" 또는 공란 처리, 추정 생성 금지
 
 마지막 줄:
-`📡 Credit Brief | Daily 08:00 KST | {{TODAY}}`
+`📡 Credit Brief v2 | Daily 08:00 KST | {{TODAY}} | 검증 등급 [A/B/C/D] 적용`
