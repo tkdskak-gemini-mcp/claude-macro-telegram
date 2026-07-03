@@ -104,7 +104,7 @@
    - 펀드명·매수 방향 명시, 직접 수치화 금지
 
 5. **사용자 보유 종목 신호 점검** `[A/B]`
-   - GOOGL · MU · CRDO · NVDA · PLTR · TSLA · AAPL · ETN · NOW · ASTS
+   - MU · GOOGL · CRDO · NVDA · TSLA · NOW · FLYW · AMBA · IBKR · RBRK · SE · LLY (+ 헷지 GLD · SGOV)
    - 시세·뉴스·애널리스트 컨센서스 변화 (MCP 직접 호출 가능)
 
 6. **회피/Pump 의심 종목 필터** `[A]`
@@ -152,13 +152,13 @@ Heat Score =
 
 ### ② 📈 사용자 보유 종목 신호
 ```
+MU:    시세 [A] $XXX (XX%) — 한 줄 근거
 GOOGL: 시세 [A] $XXX (XX%) — 한 줄 근거
-MU:    시세 [A] $XXX (XX%) — 한 줄 근거  
 CRDO:  시세 [A] $XXX (XX%) — 한 줄 근거
 NVDA:  시세 [A] $XXX (XX%) — 한 줄 근거
-PLTR:  시세 [A] $XXX (XX%) — 한 줄 근거
-ASTS:  시세 [A] $XXX (XX%) — 한 줄 근거
-(기타 종목은 변화 큰 경우만)
+TSLA:  시세 [A] $XXX (XX%) — 한 줄 근거
+LLY:   시세 [A] $XXX (XX%) — 한 줄 근거
+(그 외 NOW·FLYW·AMBA·IBKR·RBRK·SE·GLD·SGOV는 변화 큰 경우만)
 ```
 
 ### ③ 🎯 Smart Money 신호 (검증된 것만)
