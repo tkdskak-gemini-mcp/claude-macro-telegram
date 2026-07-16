@@ -2,9 +2,10 @@ name: Macro - Trend Brief
 
 on:
   workflow_dispatch:
-  schedule:
-    # KST 평일 09:00 = UTC 월~금 00:00 (war 07시·credit 08시 다음 슬롯)
-    - cron: "0 0 * * 1-5"
+  # 텔레그램 자동발송 중단(2026-07-16): 스케줄 비활성화. 수동 실행만 가능.
+  # schedule:
+  #   # KST 평일 09:00 = UTC 월~금 00:00 (war 07시·credit 08시 다음 슬롯)
+  #   - cron: "0 0 * * 1-5"
 
 jobs:
   trend-brief:
