@@ -1,0 +1,53 @@
+name: Event Alerts
+
+# 보유·관심 종목 공시(SEC·DART) + 매크로 경보선·급변 + 예측시장 급변 + 정책 발표
+# → 새 이벤트가 있을 때만 텔레그램 무음 발송. 규칙 기반이라 Claude 호출 없음.
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: "경보선 현황 스냅샷도 함께 발송"
+        type: boolean
+        default: true
+  schedule:
+    # 15분마다 (GitHub 사정으로 5~30분 늦을 수 있음)
+    - cron: "*/15 * * * *"
+
+concurrency:
+  group: event-alerts
+  cancel-in-progress: false
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # 중복 발송 방지용 상태(본 공시 목록·경보선 점등 여부)를 캐시로 이어받는다
+      - name: Restore state
+        uses: actions/cache/restore@v4
+        with:
+          path: alerts/state.json
+          key: alerts-state-${{ github.run_id }}
+          restore-keys: alerts-state-
+
+      - name: Run alerts
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+          DART_API_KEY: ${{ secrets.DART_API_KEY }}
+        run: |
+          ARGS=""
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.status }}" = "true" ]; then
+            ARGS="--status"
+          fi
+          python3 alerts/run.py $ARGS
+
+      - name: Save state
+        if: always() && hashFiles('alerts/state.json') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: alerts/state.json
+          key: alerts-state-${{ github.run_id }}-${{ github.run_attempt }}

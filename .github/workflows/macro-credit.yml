@@ -2,9 +2,10 @@ name: Macro - Credit Stress Brief
 
 on:
   workflow_dispatch:
-  schedule:
-    # KST 평일 08:00 = UTC 일~목 23:00 (KST 월~금 아침)
-    - cron: "0 23 * * 0-4"
+  # 🔴 2026-09-11 자동발송 중단 — 이벤트 알림(event-alerts.yml)으로 대체. 재개하려면 아래 3줄 주석 해제
+  # schedule:
+  #   # KST 평일 08:00 = UTC 일~목 23:00 (KST 월~금 아침)
+  #   - cron: "0 23 * * 0-4"
 
 jobs:
   credit-brief:

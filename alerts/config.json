@@ -1,0 +1,112 @@
+{
+  "_comment": "이벤트 알림 설정. 퍼블릭 저장소이므로 티커만 기재 (주수·평단·금액 금지).",
+
+  "us_holdings": {
+    "MU": ["메인"], "GOOGL": ["메인"], "CRDO": ["메인"], "NVDA": ["메인"],
+    "NOW": ["메인"], "FLYW": ["메인"], "RBRK": ["메인"], "LLY": ["메인"],
+    "SE": ["메인"], "TOST": ["메인"], "AMZN": ["메인"],
+    "AMD": ["아내"], "PLTR": ["아내"],
+    "RKLB": ["딸"], "TEM": ["딸"], "TSLA": ["딸"], "SPCX": ["딸"]
+  },
+
+  "us_watch": [
+    "SKWD", "ASIC", "JCAP", "LIF", "ZBIO", "NTRA", "UBER", "NFLX", "HALO",
+    "MRVL", "SEZL", "PAYS", "ALRM", "HAWK", "ATI", "ISRG", "HBM", "LEU",
+    "COHU", "NTLA", "TTWO"
+  ],
+
+  "cik_override": { "SE": 1703399 },
+
+  "kr_holdings": {
+    "00126380": { "name": "삼성전자", "labels": ["딸", "연금"] },
+    "00164779": { "name": "SK하이닉스", "labels": ["아내", "연금"] }
+  },
+
+  "macro_levels": [
+    { "id": "tnx5", "sym": "^TNX", "name": "미 10년물", "fmt": "{:.3f}%", "op": ">=", "v": 5.0, "hyst": 0.03,
+      "why": "fed 경보선 10Y 5.00% — 성장주 멀티플 압박" },
+    { "id": "jpy155", "sym": "JPY=X", "name": "USD/JPY", "fmt": "{:.2f}", "op": "<=", "v": 155.0, "hyst": 0.5,
+      "why": "fed 경보선 155 이탈 — 엔캐리 청산 가속 (2024: 3주 −12.4%)" },
+    { "id": "move90", "sym": "^MOVE", "name": "MOVE", "fmt": "{:.1f}", "op": ">=", "v": 90.0, "hyst": 2.0,
+      "why": "fed 경보선 90 — 채권 변동성이 주식으로 전이" },
+    { "id": "n225dd", "sym": "^N225", "name": "닛케이 고점대비", "kind": "drawdown", "fmt": "{:+.1f}%", "op": "<=", "v": -15.0, "hyst": 1.0,
+      "why": "fed 경보선 −15% — 일본 자금 본국 회귀" },
+    { "id": "vix25", "sym": "^VIX", "name": "VIX", "fmt": "{:.2f}", "op": ">=", "v": 25.0, "hyst": 1.0,
+      "why": "SGOV 트랜치1 조건 중 VIX≥25 충족 (S&P −10%와 함께 확인)" },
+    { "id": "vix30", "sym": "^VIX", "name": "VIX", "fmt": "{:.2f}", "op": ">=", "v": 30.0, "hyst": 1.0,
+      "why": "SGOV 트랜치2 조건 중 VIX≥30 충족 (S&P −15%·신용 평온 함께 확인)" },
+    { "id": "vix35", "sym": "^VIX", "name": "VIX", "fmt": "{:.2f}", "op": ">=", "v": 35.0, "hyst": 1.0,
+      "why": "SGOV 트랜치3 조건 중 VIX≥35 충족 (S&P −20%·신용 평온 함께 확인)" },
+    { "id": "spx10", "sym": "^GSPC", "name": "S&P500 고점대비", "kind": "drawdown", "fmt": "{:+.1f}%", "op": "<=", "v": -10.0, "hyst": 1.0,
+      "why": "SGOV 트랜치1 조건 중 S&P −10% 충족" },
+    { "id": "spx15", "sym": "^GSPC", "name": "S&P500 고점대비", "kind": "drawdown", "fmt": "{:+.1f}%", "op": "<=", "v": -15.0, "hyst": 1.0,
+      "why": "SGOV 트랜치2 조건 중 S&P −15% 충족" },
+    { "id": "spx20", "sym": "^GSPC", "name": "S&P500 고점대비", "kind": "drawdown", "fmt": "{:+.1f}%", "op": "<=", "v": -20.0, "hyst": 1.0,
+      "why": "SGOV 트랜치3 조건 중 S&P −20% 충족" },
+    { "id": "bwspread", "sym": "BZ=F", "sym2": "CL=F", "name": "브렌트−WTI", "kind": "spread", "fmt": "${:.2f}", "op": ">=", "v": 10.0, "hyst": 0.5,
+      "why": "war v8 경계 $10 — 비용 충격 → 물량 충격 전환 (유가 스파이크 경로)" }
+  ],
+
+  "macro_shocks": [
+    { "sym": "^TNX", "name": "미 10년물", "kind": "abs", "v": 0.15, "fmt": "{:.3f}%", "unit": "%p" },
+    { "sym": "JPY=X", "name": "USD/JPY", "kind": "pct", "v": 1.5, "fmt": "{:.2f}" },
+    { "sym": "^MOVE", "name": "MOVE", "kind": "pct", "v": 15.0, "fmt": "{:.1f}" },
+    { "sym": "^VIX", "name": "VIX", "kind": "pct", "v": 25.0, "fmt": "{:.2f}" },
+    { "sym": "^GSPC", "name": "S&P500", "kind": "pct", "v": 2.5, "fmt": "{:,.1f}" },
+    { "sym": "^N225", "name": "닛케이", "kind": "pct", "v": 4.0, "fmt": "{:,.0f}" },
+    { "sym": "BZ=F", "name": "브렌트", "kind": "pct", "v": 5.0, "fmt": "${:.2f}" },
+    { "sym": "NG=F", "name": "미 천연가스", "kind": "pct", "v": 8.0, "fmt": "${:.3f}" },
+    { "sym": "GC=F", "name": "금", "kind": "pct", "v": 3.0, "fmt": "${:,.1f}" },
+    { "sym": "^KS11", "name": "코스피", "kind": "pct", "v": 4.0, "fmt": "{:,.1f}" },
+    { "sym": "KRW=X", "name": "USD/KRW", "kind": "pct", "v": 1.5, "fmt": "{:,.1f}" }
+  ],
+
+  "credit": {
+    "ratio_level": 3.0, "ratio_hyst": 0.1,
+    "hy_shock_bp": 15,
+    "why_ratio": "크레딧 v6 — CCC÷HY 3배 초과 = 지수는 평온해도 꼬리는 무너진 것 (헷지 축소 금지)"
+  },
+
+  "kalshi": {
+    "min_oi": 10000,
+    "move_pp": 10,
+    "series": {
+      "KXFEDDECISION": "FOMC 금리결정",
+      "KXUSAIRANAGREEMENT": "미·이란 합의",
+      "KXHORMUZNORM": "호르무즈 정상화",
+      "KXTAIWANLVL4": "대만 여행경보 4단계",
+      "KXXITAIWAN": "시진핑 대만",
+      "KXRECSSNBER": "미국 경기침체(NBER)",
+      "KXIPOOPENAI": "OpenAI IPO",
+      "KXIPOANTHROPIC": "Anthropic IPO"
+    }
+  },
+
+  "policy_keywords_red": [
+    "tariff", "duties", "duty", "import", "export control", "semiconductor", "chip",
+    "sanction", "iran", "iranian", "china", "chinese", "taiwan", "section 232", "section 301", "ieepa",
+    "national emergency", "oil", "petroleum", "strait"
+  ],
+  "policy_keywords": [
+    "trade", "export", "energy", "lng", "natural gas", "critical mineral", "copper",
+    "artificial intelligence", "ai", "data center", "electric", "grid", "nuclear",
+    "pharmaceutical", "drug pricing", "medicare", "federal reserve", "interest rate",
+    "defense production act", "korea", "japan", "canada", "mexico", "europe",
+    "venezuela", "russia", "space", "crypto", "stablecoin", "bank"
+  ],
+
+  "fedreg_agencies": [
+    "Industry and Security Bureau",
+    "Trade Representative, Office of United States"
+  ],
+
+  "dart_skip": [
+    "임원ㆍ주요주주", "임원·주요주주", "대규모기업집단", "동일인등출자계열", "주식등의대량보유",
+    "거래계획보고", "공시대리인", "기업설명회", "주주명부", "특수관계인과의", "기업지배구조",
+    "최대주주등소유주식변동"
+  ],
+  "dart_red": [
+    "조회공시", "풍문", "해명", "유상증자", "전환사채", "신주인수권", "소송", "횡령", "배임",
+    "거래정지", "상장폐지", "감사의견", "영업정지", "합병", "분할", "영업(잠정)실적", "잠정실적"
+  ]
+}

@@ -1,0 +1,25 @@
+name: Keepalive
+
+# 퍼블릭 저장소는 60일간 커밋이 없으면 예약 워크플로가 자동 비활성화된다.
+# 이벤트 알림은 상태를 캐시에만 저장해 커밋이 생기지 않으므로, 매월 1회 커밋으로 활성 상태를 유지한다.
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 0 1 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Touch keepalive file
+        run: |
+          date -u +%Y-%m-%dT%H:%M:%SZ > .github/keepalive
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/keepalive
+          git commit -m "chore: keepalive (keep scheduled workflows enabled)"
+          git push
