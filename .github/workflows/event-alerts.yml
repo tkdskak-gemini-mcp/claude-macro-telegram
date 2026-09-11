@@ -10,6 +10,10 @@ on:
         description: "경보선 현황 스냅샷도 함께 발송"
         type: boolean
         default: true
+      test_score:
+        description: "(시험) 이 종목의 최근 실적 공시를 Claude로 채점 — 티커 입력, 비우면 안 함"
+        type: string
+        default: ""
   schedule:
     # 15분마다 (GitHub 사정으로 5~30분 늦을 수 있음)
     - cron: "*/15 * * * *"
@@ -40,6 +44,7 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
           DART_API_KEY: ${{ secrets.DART_API_KEY }}
+          TEST_SCORE_TICKER: ${{ inputs.test_score }}
         run: |
           ARGS=""
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.status }}" = "true" ]; then

@@ -598,11 +598,32 @@ SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시�
            ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg), ("판정일 캘린더", src_calendar)]
 
 
+def queue_test(st, ticker):
+    """수동 시험: 해당 종목의 가장 최근 실적 공시(10-Q·10-K·실적 8-K)를 채점 대기열에 넣는다."""
+    ticker = ticker.upper()
+    cik = CFG["cik_override"].get(ticker) or cik_map(st).get(ticker)
+    r = http_json(f"https://data.sec.gov/submissions/CIK{int(cik):010d}.json", {"User-Agent": SEC_UA})["filings"]["recent"]
+    for i in range(len(r["form"])):
+        form, items = r["form"][i], r["items"][i]
+        if form in ("10-Q", "10-K", "20-F") or (form == "8-K" and "2.02" in items.split(",")):
+            acc, doc = r["accessionNumber"][i], r["primaryDocument"][i]
+            st.setdefault("score_queue", []).append(
+                {"ticker": ticker, "cik": int(cik), "acc": acc, "form": form, "items": items, "doc": doc,
+                 "url": f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}/{doc}",
+                 "owner": owner_of(ticker) + " · 시험 실행", "filed": r["filingDate"][i], "tries": 0})
+            print(f"test queued: {ticker} {form} {acc}")
+            return
+    print(f"test: {ticker} 실적 공시 없음")
+
+
 def main():
     dry = "--dry-run" in sys.argv
     st = load_state()
     seed = st is None
     st = st or new_state()
+    test = os.environ.get("TEST_SCORE_TICKER", "").strip()
+    if test and not seed:
+        queue_test(st, test)
 
     alerts, errs = [], []
     seeded = st.setdefault("seeded", {})
