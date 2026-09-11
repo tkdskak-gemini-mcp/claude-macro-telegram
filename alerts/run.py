@@ -74,8 +74,16 @@ ANY_KW = kw_regex(CFG["policy_keywords_red"] + CFG["policy_keywords"])
 
 
 class Alert:
-    def __init__(self, sev, text):
-        self.sev, self.text = sev, text
+    def __init__(self, sev, text, ask=None):
+        """ask: PC의 Claude Code에 그대로 붙여넣을 분석 요청 한 줄"""
+        self.sev, self.text = sev, text + (f"\n   💬 {ask}" if ask else "")
+
+
+ASK = CFG.get("ask", {})
+
+
+def trig(key, default="프로젝트 포트폴리오"):
+    return ASK.get(key, default)
 
 
 # ───────────────────────── 상태 ─────────────────────────
@@ -213,7 +221,8 @@ def src_sec(st, seed):
                     {"ticker": ticker, "cik": int(cik), "acc": acc, "form": r["form"][i], "items": r["items"][i],
                      "doc": doc, "url": url, "owner": owner, "filed": fdate, "tries": 0})
             tail = "\n   🧾 Claude 원문 채점 대기열 등록 (수 분~수십 분 뒤 별도 메시지)" if scoring else ""
-            out.append(Alert(sev, f"{sev} [공시·SEC] {ticker} {r['form'][i]} — {label}\n   {owner} · {when}\n   {url}{tail}"))
+            out.append(Alert(sev, f"{sev} [공시·SEC] {ticker} {r['form'][i]} — {label}\n   {owner} · {when}{tail}",
+                             f"{ticker} {r['form'][i]} 공시({label}) 원문 검토 — 내 thesis 영향 판정해줘: {url}"))
         time.sleep(0.12)  # SEC 초당 10회 제한 준수
     if errors and len(errors) > len(universe) // 2:
         raise RuntimeError("; ".join(errors[:3]))
@@ -243,8 +252,8 @@ def src_dart(st, seed):
                 continue
             sev = RED if any(k in name for k in CFG["dart_red"]) else YEL
             out.append(Alert(sev, f"{sev} [공시·DART] {info['name']} — {name}\n"
-                                  f"   보유: {'·'.join(info['labels'])} · {rdate} · 제출 {x.get('flr_nm', '')}\n"
-                                  f"   https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rno}"))
+                                  f"   보유: {'·'.join(info['labels'])} · {rdate} · 제출 {x.get('flr_nm', '')}",
+                             f"{info['name']} DART 공시 「{name}」 검토 — 내 보유 영향 판정해줘: https://dart.fss.or.kr/dsaf001/main.do?rcpNo={rno}"))
     return out
 
 
@@ -321,10 +330,11 @@ def src_macro(st, seed):
         ev = level_step(st, rule["id"], val, rule["op"], rule["v"], rule["hyst"])
         if ev and not seed:
             shown, line = rule["fmt"].format(val), rule["fmt"].format(rule["v"])
+            ask = f"{trig(rule['id'])} — {rule['name']} {shown} 경보선 {'점등' if ev == 'on' else '해제'}({rule['why'].split(' — ')[0]}), 대응 판정해줘"
             if ev == "on":
-                out.append(Alert(RED, f"{RED} [매크로·경보선 점등] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}"))
+                out.append(Alert(RED, f"{RED} [매크로·경보선 점등] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}", ask))
             else:
-                out.append(Alert(GRN, f"{GRN} [매크로·경보선 해제] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}"))
+                out.append(Alert(GRN, f"{GRN} [매크로·경보선 해제] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}", ask))
     for rule in CFG["macro_shocks"]:
         y = yahoo(rule["sym"])
         if y["stale"] or not y["prev"]:
@@ -344,7 +354,8 @@ def src_macro(st, seed):
         arrow = "▲" if chg > 0 else "▼"
         move = f"{chg:+.3f}%p" if rule["kind"] == "abs" else f"{pct:+.2f}%"
         out.append(Alert(YEL, f"⚡ [매크로·급변] {rule['name']} {arrow} {move} → {rule['fmt'].format(y['price'])}\n"
-                              f"   하루 변동 기준 ±{rule['v']}{rule.get('unit', '%')} 초과 · {y['date']}"))
+                              f"   하루 변동 기준 ±{rule['v']}{rule.get('unit', '%')} 초과 · {y['date']}",
+                         f"{trig(rule['sym'])} — {rule['name']} 하루 {move} 급변, 원인과 내 포트 영향 분석해줘"))
     return out
 
 
@@ -365,7 +376,8 @@ def src_credit(st, seed):
     ev = level_step(st, "ccc_hy", ratio, ">=", c["ratio_level"], c["ratio_hyst"])
     if ev and not seed:
         sev, word = (RED, "점등") if ev == "on" else (GRN, "해제")
-        out.append(Alert(sev, f"{sev} [크레딧·경보선 {word}] CCC÷HY {ratio:.2f}배 (기준 {c['ratio_level']}배) · CCC {ccc1:.2f}% / HY {hy1:.2f}%\n   {c['why_ratio']}"))
+        out.append(Alert(sev, f"{sev} [크레딧·경보선 {word}] CCC÷HY {ratio:.2f}배 (기준 {c['ratio_level']}배) · CCC {ccc1:.2f}% / HY {hy1:.2f}%\n   {c['why_ratio']}",
+                         f"프로젝트 크레딧 — CCC÷HY {ratio:.2f}배 경보선 {word}, 헷지·SGOV 트랜치 대응 판정해줘"))
     for name, d0, v0, d1, v1, lim in (("HY OAS", hd0, hy0, hd1, hy1, c["hy_shock_bp"]),
                                       ("CCC OAS", None, ccc0, cd1, ccc1, c.get("ccc_shock_bp", 40))):
         bp = (v1 - v0) * 100
@@ -373,7 +385,8 @@ def src_credit(st, seed):
         if bp >= lim and key not in st["shocks"]:
             st["shocks"][key] = bp
             if not seed:
-                out.append(Alert(YEL, f"⚡ [크레딧·급변] {name} {v0:.2f}% → {v1:.2f}% (+{bp:.0f}bp 하루) · {d1}\n   스프레드 급확대 — SGOV STOP 조건(신용스트레스) 점검"))
+                out.append(Alert(YEL, f"⚡ [크레딧·급변] {name} {v0:.2f}% → {v1:.2f}% (+{bp:.0f}bp 하루) · {d1}\n   스프레드 급확대 — SGOV STOP 조건(신용스트레스) 점검",
+                                 f"프로젝트 크레딧 — {name} 하루 +{bp:.0f}bp 급확대, 원인과 SGOV STOP 조건 판정해줘"))
     return out
 
 
@@ -420,7 +433,8 @@ def src_kalshi(st, seed):
             grade = "A" if oi >= 100000 else "B"
             sub = m.get("yes_sub_title") or m.get("subtitle") or tk
             hrs = (now - base[1]) / 3600
-            out.append(Alert(YEL, f"🎲 [예측시장·{grade}] {label} — {sub}\n   {b:.1f}% → {p:.1f}% ({p - b:+.1f}%p, {hrs:.0f}시간 내) · OI {oi:,.0f} · {tk}"))
+            out.append(Alert(YEL, f"🎲 [예측시장·{grade}] {label} — {sub}\n   {b:.1f}% → {p:.1f}% ({p - b:+.1f}%p, {hrs:.0f}시간 내) · OI {oi:,.0f} · {tk}",
+                             f"{trig(series)} — Kalshi {label}({sub}) {b:.0f}%→{p:.0f}% 급변, 원인과 대응 판정해줘"))
     # 만기된 마켓 정리
     st["kalshi"] = {t: v for t, v in st["kalshi"].items() if now - v[1] < 7 * 86400}
     return out
@@ -446,7 +460,8 @@ def src_whitehouse(st, seed):
             continue
         cats = [c.text for c in it.findall("category") if c.text and c.text != "Presidential Actions"]
         sev = RED if RED_KW.search(title) else YEL
-        out.append(Alert(sev, f"{sev} [정책·백악관] {' / '.join(cats) or '대통령 조치'} · {kst(pub)} KST\n   {title[:180]}\n   {link}"))
+        out.append(Alert(sev, f"{sev} [정책·백악관] {' / '.join(cats) or '대통령 조치'} · {kst(pub)} KST\n   {title[:180]}",
+                         f"이 대통령 조치가 내 전 계좌 보유종목에 미치는 영향 분석해줘: {link}"))
     return out
 
 
@@ -463,7 +478,9 @@ def src_fedreg(st, seed):
         title = (doc.get("title") or "").strip()
         sev = RED if RED_KW.search(title) else YEL
         who = "상무부 BIS(수출통제)" if "Industry and Security Bureau" in agencies else "USTR(무역대표부)"
-        out.append(Alert(sev, f"{sev} [정책·연방관보 공개열람] {who} · {doc.get('type', '')}\n   {title[:180]}\n   {doc.get('html_url') or doc.get('pdf_url', '')}"))
+        link = doc.get("html_url") or doc.get("pdf_url", "")
+        out.append(Alert(sev, f"{sev} [정책·연방관보 공개열람] {who} · {doc.get('type', '')}\n   {title[:180]}",
+                         f"이 {who} 문서가 내 보유종목(반도체 등)에 미치는 영향 분석해줘: {link}"))
     return out
 
 
@@ -529,7 +546,8 @@ def src_calendar(st, seed):  # noqa: ARG001 — 일정 알림은 과거 이벤�
         body = "".join(f"\n    {'①②③④⑤⑥'[i]} {c}" for i, c in enumerate(checks[:6]))
         name = f"{t} " if t else ""
         out.append(Alert(YEL, f"📅 [판정일] {name}{ev.get('title', '')} — {when}\n   {owner_of(t)}"
-                              + (f"\n   볼 것:{body}" if body else "")))
+                              + (f"\n   볼 것:{body}" if body else ""),
+                         f"{name}{ev.get('title', '')} 결과 확인 — 볼 것 체크리스트로 판정해줘"))
     return out
 
 

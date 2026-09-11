@@ -95,6 +95,20 @@
     "venezuela", "russia", "space", "crypto", "stablecoin", "bank"
   ],
 
+  "ask": {
+    "_comment": "알림 끝 '💬 붙여넣기 문장'에 쓸 Claude Code 프로젝트 트리거. 키 = 경보선 id / 시세 심볼 / Kalshi 시리즈",
+    "tnx5": "프로젝트 fed", "jpy155": "프로젝트 fed", "move90": "프로젝트 fed", "n225dd": "프로젝트 fed",
+    "vix25": "프로젝트 크레딧", "vix30": "프로젝트 크레딧", "vix35": "프로젝트 크레딧",
+    "spx10": "프로젝트 크레딧", "spx15": "프로젝트 크레딧", "spx20": "프로젝트 크레딧",
+    "bwspread": "프로젝트 war",
+    "^TNX": "프로젝트 fed", "JPY=X": "프로젝트 fed", "^MOVE": "프로젝트 fed", "^N225": "프로젝트 fed",
+    "KRW=X": "프로젝트 fed", "^VIX": "프로젝트 크레딧", "^GSPC": "프로젝트 포트폴리오",
+    "^KS11": "프로젝트 포트폴리오", "BZ=F": "프로젝트 war", "NG=F": "프로젝트 에너지", "GC=F": "프로젝트 war",
+    "KXFEDDECISION": "프로젝트 fed", "KXUSAIRANAGREEMENT": "프로젝트 war", "KXHORMUZNORM": "프로젝트 war",
+    "KXTAIWANLVL4": "프로젝트 war", "KXXITAIWAN": "프로젝트 war", "KXRECSSNBER": "프로젝트 크레딧",
+    "KXIPOOPENAI": "프로젝트 ai", "KXIPOANTHROPIC": "프로젝트 ai"
+  },
+
   "fedreg_agencies": [
     "Industry and Security Bureau",
     "Trade Representative, Office of United States"

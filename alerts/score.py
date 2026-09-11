@@ -174,7 +174,11 @@ def score_job(job, dry, prepare_only):
         print(prompt[:3000], f"\n... (원문 {len(text):,}자 → {doc_path})")
         return None
     result = run_claude(prompt, workdir)
-    return f"🧾 [실적 채점] {job['ticker']} {job['form']} · {job['owner']} · 제출 {job['filed']}\n\n{result}\n\n원문: {job['url']}"
+    concl = re.search(r"결론:\s*(.+)", result)
+    ask = (f"{job['ticker']} {job['form']} 실적 채점 결과({concl.group(1)[:40] if concl else '확인'}) 검토 — "
+           f"원문으로 ③층 훼손 최종 판정하고 thesis 메모리 갱신해줘: {job['url']}")
+    return (f"🧾 [실적 채점] {job['ticker']} {job['form']} · {job['owner']} · 제출 {job['filed']}\n\n{result}\n\n"
+            f"원문: {job['url']}\n💬 {ask}")
 
 
 def main():
