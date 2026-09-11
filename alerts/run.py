@@ -150,6 +150,16 @@ def classify_sec(form, items):
     return None
 
 
+SCORE_FORMS_HOLD = {"10-Q", "10-K", "20-F", "6-K"}   # 보유 종목: 실적 8-K(2.02)도 채점
+SCORE_FORMS_WATCH = {"10-Q", "10-K", "20-F"}         # 관심 종목: 분기·연간 보고서만
+
+
+def wants_score(ticker, form, items):
+    if ticker in CFG["us_holdings"]:
+        return form in SCORE_FORMS_HOLD or (form == "8-K" and "2.02" in items.split(","))
+    return ticker in CFG["us_watch"] and form in SCORE_FORMS_WATCH
+
+
 def cik_map(st):
     if st["cik"] and time.time() - st.get("cik_ts", 0) < 7 * 86400:
         return st["cik"]
@@ -197,7 +207,13 @@ def src_sec(st, seed):
                 when = fdate
             doc = r["primaryDocument"][i]
             url = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{acc.replace('-', '')}/{doc}"
-            out.append(Alert(sev, f"{sev} [공시·SEC] {ticker} {r['form'][i]} — {label}\n   {owner} · {when}\n   {url}"))
+            scoring = wants_score(ticker, r["form"][i], r["items"][i])
+            if scoring:
+                st.setdefault("score_queue", []).append(
+                    {"ticker": ticker, "cik": int(cik), "acc": acc, "form": r["form"][i], "items": r["items"][i],
+                     "doc": doc, "url": url, "owner": owner, "filed": fdate, "tries": 0})
+            tail = "\n   🧾 Claude 원문 채점 대기열 등록 (수 분~수십 분 뒤 별도 메시지)" if scoring else ""
+            out.append(Alert(sev, f"{sev} [공시·SEC] {ticker} {r['form'][i]} — {label}\n   {owner} · {when}\n   {url}{tail}"))
         time.sleep(0.12)  # SEC 초당 10회 제한 준수
     if errors and len(errors) > len(universe) // 2:
         raise RuntimeError("; ".join(errors[:3]))
@@ -451,6 +467,72 @@ def src_fedreg(st, seed):
     return out
 
 
+# ───────────────────────── 7. 판정일 캘린더 ─────────────────────────
+
+APPROX_DAY = {"초": 1, "중": 10, "말": 20}
+
+
+def load_thesis():
+    p = os.path.join(HERE, "thesis.json")
+    if not os.path.exists(p):
+        return {"tickers": {}, "macro_events": []}
+    with open(p, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def event_day(ev):
+    """확정 날짜 또는 '2026-12-09경'·'2026-10-21 전후'처럼 일자가 있는 대략 일정의 날짜."""
+    m = re.match(r"(\d{4})-(\d{2})-(\d{2})", ev.get("date") or ev.get("approx") or "")
+    return datetime(int(m[1]), int(m[2]), int(m[3])).date() if m else None
+
+
+def remind_date(ev):
+    """일자가 있으면 전날, '2026-11 초'·'2026-11' 같은 월 단위 일정은 그 달 1·10·20일에 알린다.
+    '2026 하반기'처럼 월이 없는 일정은 알리지 않는다."""
+    d = event_day(ev)
+    if d:
+        return d - timedelta(days=1)
+    m = re.match(r"(\d{4})-(\d{2})\s*(초|중|중순|말)?", ev.get("approx") or "")
+    return datetime(int(m[1]), int(m[2]), APPROX_DAY.get((m[3] or "초")[0], 1)).date() if m else None
+
+
+def owner_of(ticker):
+    if not ticker:
+        return "매크로"
+    if ticker in CFG["us_holdings"]:
+        return "보유: " + "·".join(CFG["us_holdings"][ticker])
+    return "관심종목"
+
+
+def src_calendar(st, seed):  # noqa: ARG001 — 일정 알림은 과거 이벤트가 아니므로 초기화 억제 없음
+    now_kst = NOW.astimezone(KST)
+    if now_kst.hour < 8:
+        return []
+    th, today, out = load_thesis(), now_kst.date(), []
+    items = [(t, ev) for t, v in th.get("tickers", {}).items() for ev in v.get("events", [])]
+    items += [(None, ev) for ev in th.get("macro_events", [])]
+    for t, ev in items:
+        rd = remind_date(ev)
+        if not rd or not (rd <= today <= rd + timedelta(days=1)):  # 하루 놓쳐도 다음날까지 보냄
+            continue
+        key = f"{t}|{ev.get('date') or ev.get('approx')}|{ev.get('title')}"
+        if not mark_seen(st, "cal", key, today.isoformat()):
+            continue
+        d = event_day(ev)
+        if d:
+            when = {1: "내일", 0: "오늘"}.get((d - today).days, "") + f"({d:%m/%d})"
+            if not ev.get("date"):
+                when += f" · {ev['approx']}"
+        else:
+            when = f"{ev['approx']} 예정"
+        checks = ev.get("checks") or (th["tickers"].get(t, {}).get("checks", []) if t else [])
+        body = "".join(f"\n    {'①②③④⑤⑥'[i]} {c}" for i, c in enumerate(checks[:6]))
+        name = f"{t} " if t else ""
+        out.append(Alert(YEL, f"📅 [판정일] {name}{ev.get('title', '')} — {when}\n   {owner_of(t)}"
+                              + (f"\n   볼 것:{body}" if body else "")))
+    return out
+
+
 # ───────────────────────── 현황 스냅샷 ─────────────────────────
 
 def status_lines(st):
@@ -513,7 +595,7 @@ def send(text, dry):
 
 SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시세", src_macro),
            ("크레딧(FRED)", src_credit), ("예측시장(Kalshi)", src_kalshi),
-           ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg)]
+           ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg), ("판정일 캘린더", src_calendar)]
 
 
 def main():
@@ -553,7 +635,11 @@ def main():
         send(f"📡 이벤트 알림 · {stamp} KST ({len(alerts)}건)\n\n" + "\n\n".join(a.text for a in alerts), dry)
 
     save_state(st)
-    print(f"done: alerts={len(alerts)} errors={len(errs)} seed={seed}")
+    queued = len(st.get("score_queue", []))
+    if queued and os.environ.get("GITHUB_OUTPUT"):
+        with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write("score=true\n")
+    print(f"done: alerts={len(alerts)} errors={len(errs)} seed={seed} score_queue={queued}")
 
 
 if __name__ == "__main__":

@@ -15,8 +15,20 @@ GitHub Actions로 투자 관련 이벤트를 텔레그램으로 자동 발송하
 | 크레딧 | FRED | CCC÷HY 3배 점등·해제, HY +15bp·CCC +40bp 하루 급확대 |
 | 예측시장 | Kalshi | FOMC·미이란 합의·호르무즈·대만·침체·AI IPO 확률이 24시간 내 ±10%p 급변 (OI 1만 이상) |
 | 정책 | 백악관 발표·연방관보 | 관세·수출통제·제재·에너지 등 키워드가 들어간 대통령 조치, 상무부 BIS·USTR 문서 |
+| 판정일 | [alerts/thesis.json](alerts/thesis.json) | 날짜가 정해진 일정은 전날 08시 이후, "2026-11 초" 같은 대략 일정은 그 달 1·10·20일에 "볼 것"과 함께 |
 
-- 종목·기준값은 [alerts/config.json](alerts/config.json)에서 수정한다. **퍼블릭 저장소이므로 티커만 적고 주수·평단·금액은 적지 않는다.**
+### 실적 원문 채점 (Claude)
+
+보유 종목의 실적 8-K(2.02)·10-Q·10-K·6-K, 관심 종목의 10-Q·10-K가 감지되면 채점 대기열에 넣는다.
+[alerts/score.py](alerts/score.py)가 SEC 원문(본문+EX-99 보도자료)을 텍스트로 받고 XBRL 분기 시계열을 붙여,
+Claude(`claude -p`, 도구는 Read·Grep·Glob만)가 [prompts/earnings_score.md](prompts/earnings_score.md) 형식으로
+성장성 훼손 6대 신호와 thesis 체크를 채점해 별도 메시지로 보낸다.
+
+- 실행 1회당 최대 2건 (실적 시즌 몰림 분산), 실패 시 3회 재시도 후 원문 링크와 함께 실패 알림
+- 가격·밸류 지표는 쓰지 않고, 매수·매도 권고도 하지 않는다. 결론은 "③층 재검토 필요/불필요/보류"
+- 로컬 확인: `python alerts/score.py --prepare-only` (Claude 호출 없이 원문·프롬프트만 준비)
+
+- 종목·기준값은 [alerts/config.json](alerts/config.json)에서, 종목별 "볼 것"과 판정일은 [alerts/thesis.json](alerts/thesis.json)에서 수정한다. **퍼블릭 저장소이므로 티커만 적고 주수·평단·금액은 적지 않는다.**
 - 중복 방지 상태는 Actions 캐시에 저장한다. 첫 실행(또는 소스가 처음 성공한 실행)은 기존 이벤트를 '본 것'으로만 기록한다.
 - 한 소스가 4회 연속(약 1시간) 실패하면 시스템 경고를 1회 보낸다.
 - 수동 실행(Run workflow) 시 현재 경보선 현황 스냅샷을 함께 보낸다.
