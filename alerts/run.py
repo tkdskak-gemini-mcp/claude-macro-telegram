@@ -71,6 +71,10 @@ def kw_regex(words):
 
 RED_KW = kw_regex(CFG["policy_keywords_red"])
 ANY_KW = kw_regex(CFG["policy_keywords_red"] + CFG["policy_keywords"])
+# 정례 절차 문서(버리지 않고 ⚪로 표시만 낮춘다) / 의례성 포고문(제외)
+ROUTINE_KW = re.compile(r"request for comments?|requests? for (public )?comments?|notice of (public )?meeting|"
+                        r"information collection|solicitation of comments|public hearing|advisory committee", re.I)
+CEREMONIAL = re.compile(r"National .{0,40}(Day|Week|Month)\b|Anniversary of|in Honor of|Proclamation \d+", re.I)
 
 
 class Alert:
@@ -458,6 +462,8 @@ def src_whitehouse(st, seed):
             continue
         if not ANY_KW.search(title):
             continue
+        if CEREMONIAL.search(title):   # 기념일 포고문 등 의례성 문서
+            continue
         cats = [c.text for c in it.findall("category") if c.text and c.text != "Presidential Actions"]
         sev = RED if RED_KW.search(title) else YEL
         out.append(Alert(sev, f"{sev} [정책·백악관] {' / '.join(cats) or '대통령 조치'} · {kst(pub)} KST\n   {title[:180]}",
@@ -476,10 +482,13 @@ def src_fedreg(st, seed):
         if not mark_seen(st, "fr", num, NOW.strftime("%Y-%m-%d")) or seed:
             continue
         title = (doc.get("title") or "").strip()
-        sev = RED if RED_KW.search(title) else YEL
         who = "상무부 BIS(수출통제)" if "Industry and Security Bureau" in agencies else "USTR(무역대표부)"
         link = doc.get("html_url") or doc.get("pdf_url", "")
-        out.append(Alert(sev, f"{sev} [정책·연방관보 공개열람] {who} · {doc.get('type', '')}\n   {title[:180]}",
+        routine = ROUTINE_KW.search(title) and doc.get("type") == "Notice"
+        # 정례 절차(의견요청·설명회·자료수집)는 버리지 않고 ⚪로 낮춰 메시지 아래쪽에 모은다
+        sev = INFO if routine else (RED if RED_KW.search(title) else YEL)
+        kind = "의견요청·정례" if routine else doc.get("type", "")
+        out.append(Alert(sev, f"{sev} [정책·연방관보 공개열람] {who} · {kind}\n   {title[:180]}",
                          f"이 {who} 문서가 내 보유종목(반도체 등)에 미치는 영향 분석해줘: {link}"))
     return out
 
