@@ -15,8 +15,10 @@ on:
         type: string
         default: ""
   schedule:
-    # 15분마다 (GitHub 사정으로 5~30분 늦을 수 있음)
-    - cron: "*/15 * * * *"
+    # 15분마다. ⚠️ 정각·15/30/45분은 GitHub 큐가 가장 혼잡해 크게 밀린다
+    # (2026-09-11~14 실측: */15로 돌렸더니 실제 간격 중앙값 164분·최대 339분)
+    # → 혼잡하지 않은 분(7·22·37·52)으로 옮겨 지연을 줄인다
+    - cron: "7,22,37,52 * * * *"
 
 concurrency:
   group: event-alerts
@@ -52,16 +54,24 @@ jobs:
           fi
           python3 alerts/run.py $ARGS
 
-      # 실적 공시(8-K 2.02·10-Q·10-K)가 대기열에 있을 때만 Claude로 원문 채점
+      # 실적 공시 채점 또는 핫이슈 요약이 필요할 때만 Claude를 부른다
       - name: Setup Node
-        if: steps.run.outputs.score == 'true'
+        if: steps.run.outputs.score == 'true' || steps.run.outputs.news == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Install Claude Code CLI
-        if: steps.run.outputs.score == 'true'
+        if: steps.run.outputs.score == 'true' || steps.run.outputs.news == 'true'
         run: npm install -g @anthropic-ai/claude-code
+
+      - name: News digest
+        if: steps.run.outputs.news == 'true'
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python3 alerts/news.py
 
       - name: Score earnings filings
         if: steps.run.outputs.score == 'true'

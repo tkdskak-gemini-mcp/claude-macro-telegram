@@ -611,9 +611,17 @@ def send(text, dry):
             raise RuntimeError(f"Telegram: {r}")
 
 
-SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시세", src_macro),
+BASE_SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시세", src_macro),
            ("크레딧(FRED)", src_credit), ("예측시장(Kalshi)", src_kalshi),
            ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg), ("판정일 캘린더", src_calendar)]
+
+
+def sources():
+    """뉴스 모듈은 실행 시점에 불러오고 core를 주입한다(순환 참조 방지)."""
+    import news
+
+    news.core = sys.modules[__name__]
+    return BASE_SOURCES + [("뉴스·논문", news.collect)]
 
 
 def queue_test(st, ticker):
@@ -645,7 +653,7 @@ def main():
 
     alerts, errs = [], []
     seeded = st.setdefault("seeded", {})
-    for name, fn in SOURCES:
+    for name, fn in sources():
         try:
             # 소스별 첫 성공 실행은 기록만 한다 (시크릿이 나중에 추가돼도 과거 공시가 몰려오지 않게)
             alerts += fn(st, seed or not seeded.get(name))
@@ -675,10 +683,14 @@ def main():
 
     save_state(st)
     queued = len(st.get("score_queue", []))
-    if queued and os.environ.get("GITHUB_OUTPUT"):
+    due = st.get("news_digest_due")
+    if os.environ.get("GITHUB_OUTPUT"):
         with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
-            f.write("score=true\n")
-    print(f"done: alerts={len(alerts)} errors={len(errs)} seed={seed} score_queue={queued}")
+            if queued:
+                f.write("score=true\n")
+            if due:
+                f.write("news=true\n")
+    print(f"done: alerts={len(alerts)} errors={len(errs)} seed={seed} score_queue={queued} digest_due={due}")
 
 
 if __name__ == "__main__":
