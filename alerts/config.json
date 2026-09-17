@@ -107,6 +107,16 @@
       "why": "fed 경보선 10Y 5.00% — 성장주 멀티플 압박"
     },
     {
+      "id": "tnx525",
+      "sym": "^TNX",
+      "name": "미 10년물",
+      "fmt": "{:.3f}%",
+      "op": ">=",
+      "v": 5.25,
+      "hyst": 0.03,
+      "why": "fed 2단계 — 5.00%는 연준 기대로 설명되는 상단, 5.25%는 정책만으로 설명하기 어려운 수준"
+    },
+    {
       "id": "jpy155",
       "sym": "JPY=X",
       "name": "USD/JPY",
@@ -596,7 +606,10 @@
     "KXXITAIWAN": "프로젝트 war",
     "KXRECSSNBER": "프로젝트 크레딧",
     "KXIPOOPENAI": "프로젝트 ai",
-    "KXIPOANTHROPIC": "프로젝트 ai"
+    "KXIPOANTHROPIC": "프로젝트 ai",
+    "tnx525": "프로젝트 fed",
+    "tnx_move": "프로젝트 fed",
+    "bear_steep": "프로젝트 fed"
   },
   "fedreg_agencies": [
     "Industry and Security Bureau",
@@ -634,5 +647,40 @@
     "분할",
     "영업(잠정)실적",
     "잠정실적"
-  ]
+  ],
+  "rate_regimes": {
+    "_comment": "fed 2단계 경보(2026-09-17). 5.00% 점등 이후 '질서 있는 상승'이 '무질서한 상승'으로 바뀌는 순간을 잡는다.",
+    "combo": [
+      {
+        "id": "tnx_move",
+        "name": "10Y×MOVE 동시",
+        "parts": [
+          {
+            "sym": "^TNX",
+            "label": "10Y",
+            "fmt": "{:.3f}%",
+            "op": ">=",
+            "v": 5.0,
+            "hyst": 0.03
+          },
+          {
+            "sym": "^MOVE",
+            "label": "MOVE",
+            "fmt": "{:.1f}",
+            "op": ">=",
+            "v": 90.0,
+            "hyst": 2.0
+          }
+        ],
+        "why": "fed 2단계 — 금리 수준과 채권 변동성이 동시에 경보선 위 = 주식으로 전이되는 조합 (둘 다 넘으면 점등·하나라도 풀리면 해제)"
+      }
+    ],
+    "steepener": {
+      "id": "bear_steep",
+      "days": 5,
+      "tnx_bp": 10,
+      "spread_bp": 5,
+      "why": "fed 2단계 ★가장 위험 — 10Y가 오르면서 2s10s가 벌어짐 = 연준이 아니라 장기 위험프리미엄(재정·수급) 발작. 지금까지는 2년물 주도 축소(bear flattening)였다"
+    }
+  }
 }

@@ -325,6 +325,22 @@ def level_step(st, key, val, op, v, hyst):
     return None
 
 
+def combo_step(st, combo, vals):
+    """복합 경보: 모든 조건이 넘으면 점등, 하나라도 히스테리시스 밖으로 풀리면 해제."""
+    was = st["levels"].get(combo["id"], False)
+    parts = combo["parts"]
+    hit = all((v >= pt["v"]) if pt["op"] == ">=" else (v <= pt["v"]) for pt, v in zip(parts, vals))
+    cleared = any((v < pt["v"] - pt["hyst"]) if pt["op"] == ">=" else (v > pt["v"] + pt["hyst"])
+                  for pt, v in zip(parts, vals))
+    if not was and hit:
+        st["levels"][combo["id"]] = True
+        return "on"
+    if was and cleared:
+        st["levels"][combo["id"]] = False
+        return "off"
+    return None
+
+
 def src_macro(st, seed):
     out = []
     for rule in CFG["macro_levels"]:
@@ -339,6 +355,17 @@ def src_macro(st, seed):
                 out.append(Alert(RED, f"{RED} [매크로·경보선 점등] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}", ask))
             else:
                 out.append(Alert(GRN, f"{GRN} [매크로·경보선 해제] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}", ask))
+    for combo in CFG.get("rate_regimes", {}).get("combo", []):
+        ys = [yahoo(pt["sym"]) for pt in combo["parts"]]
+        if any(y["stale"] for y in ys):
+            continue
+        ev = combo_step(st, combo, [y["price"] for y in ys])
+        if ev and not seed:
+            vals = " · ".join(f"{pt['label']} {pt['fmt'].format(y['price'])}(기준 {pt['op']} {pt['fmt'].format(pt['v'])})"
+                              for pt, y in zip(combo["parts"], ys))
+            word, sev = ("점등", RED) if ev == "on" else ("해제", GRN)
+            out.append(Alert(sev, f"{sev} [매크로·2단계 경보 {word}] {combo['name']}\n   {vals}\n   {combo['why']}",
+                             f"{trig(combo['id'])} — {combo['name']} 2단계 경보 {word}({vals}), 대응 판정해줘"))
     for rule in CFG["macro_shocks"]:
         y = yahoo(rule["sym"])
         if y["stale"] or not y["prev"]:
@@ -369,6 +396,48 @@ def fred_last2(series):
     rows = http(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}").decode().strip().splitlines()[1:]
     vals = [(d, float(v)) for d, v in (r.split(",") for r in rows) if v not in (".", "")]
     return vals[-2], vals[-1]
+
+
+def fred_series(series):
+    rows = http(f"https://fred.stlouisfed.org/graph/fredgraph.csv?id={series}").decode().strip().splitlines()[1:]
+    return {d: float(v) for d, v in (r.split(",") for r in rows) if v not in (".", "")}
+
+
+def steepener_value():
+    """설정한 거래일 수 동안의 10Y 변화(bp)와 2s10s 변화(bp). 두 시리즈가 모두 있는 날짜만 쓴다."""
+    s = CFG["rate_regimes"]["steepener"]
+    t10, t2 = fred_series("DGS10"), fred_series("DGS2")
+    days = sorted(set(t10) & set(t2))[-(s["days"] + 1):]
+    if len(days) < s["days"] + 1:
+        raise RuntimeError(f"DGS10·DGS2 공통 관측일 부족({len(days)})")
+    d0, d1 = days[0], days[-1]
+    return {"d0": d0, "d1": d1, "t10": t10[d1], "t2": t2[d1],
+            "d10": (t10[d1] - t10[d0]) * 100,
+            "sp": (t10[d1] - t2[d1]) * 100,
+            "dsp": ((t10[d1] - t2[d1]) - (t10[d0] - t2[d0])) * 100}
+
+
+def src_steepener(st, seed):
+    s = CFG.get("rate_regimes", {}).get("steepener")
+    if not s:
+        return []
+    v = steepener_value()
+    was = st["levels"].get(s["id"], False)
+    hit = v["d10"] >= s["tnx_bp"] and v["dsp"] >= s["spread_bp"]
+    cleared = v["d10"] < s["tnx_bp"] / 2 or v["dsp"] < 0
+    ev = None
+    if not was and hit:
+        st["levels"][s["id"]], ev = True, "on"
+    elif was and cleared:
+        st["levels"][s["id"]], ev = False, "off"
+    if not ev or seed:
+        return []
+    word, sev = ("점등", RED) if ev == "on" else ("해제", GRN)
+    body = (f"10Y {v['t10']:.2f}% ({v['d10']:+.0f}bp) · 2Y {v['t2']:.2f}% · 2s10s {v['sp']:+.0f}bp ({v['dsp']:+.0f}bp)"
+            f" · {v['d0']}→{v['d1']} ({s['days']}거래일)")
+    return [Alert(sev, f"{sev} [매크로·2단계 경보 {word}] 약세 스티프닝(2s10s)\n   {body}\n"
+                       f"   기준: 10Y {s['tnx_bp']}bp↑ 그리고 2s10s {s['spread_bp']}bp↑\n   {s['why']}",
+                  f"{trig(s['id'])} — 약세 스티프닝 2단계 경보 {word}({body}), 대응 판정해줘")]
 
 
 def src_credit(st, seed):
@@ -587,6 +656,25 @@ def status_lines(st):
         lines.append(f"  {RED if on else GRN} CCC÷HY {ccc / hy:.2f}배  (기준 >= {CFG['credit']['ratio_level']}배 · {d})")
     except Exception as e:  # noqa: BLE001
         lines.append(f"  ? 크레딧: 조회 실패 ({e})")
+    rr = CFG.get("rate_regimes", {})
+    for combo in rr.get("combo", []):
+        try:
+            ys = [yahoo(pt["sym"]) for pt in combo["parts"]]
+            on = st["levels"].get(combo["id"], False)
+            vals = " · ".join(f"{pt['label']} {pt['fmt'].format(y['price'])}/{pt['fmt'].format(pt['v'])}"
+                              for pt, y in zip(combo["parts"], ys))
+            lines.append(f"  {RED if on else GRN} {combo['name']}  ({vals})")
+        except Exception as e:  # noqa: BLE001
+            lines.append(f"  ? {combo['name']}: 조회 실패 ({str(e)[:80]})")
+    if rr.get("steepener"):
+        s = rr["steepener"]
+        try:
+            v = steepener_value()
+            on = st["levels"].get(s["id"], False)
+            lines.append(f"  {RED if on else GRN} 약세 스티프닝  (10Y {v['d10']:+.0f}bp/{s['tnx_bp']} · "
+                         f"2s10s {v['sp']:+.0f}bp, 변화 {v['dsp']:+.0f}bp/{s['spread_bp']} · {s['days']}거래일~{v['d1']})")
+        except Exception as e:  # noqa: BLE001
+            lines.append(f"  ? 약세 스티프닝: 조회 실패 ({str(e)[:80]})")
     n_us = len(CFG["us_holdings"]) + len([t for t in CFG["us_watch"] if t not in CFG["us_holdings"]])
     lines += ["", f"[감시 대상] 미국 {n_us}종(보유 {len(CFG['us_holdings'])}·관심 {n_us - len(CFG['us_holdings'])}) · "
                   f"한국 {len(CFG['kr_holdings'])}종 · 예측시장 {len(CFG['kalshi']['series'])}개 시리즈 · 백악관·연방관보"]
@@ -621,7 +709,7 @@ def send(text, dry):
 
 
 BASE_SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시세", src_macro),
-           ("크레딧(FRED)", src_credit), ("예측시장(Kalshi)", src_kalshi),
+           ("크레딧(FRED)", src_credit), ("금리 레짐(FRED)", src_steepener), ("예측시장(Kalshi)", src_kalshi),
            ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg), ("판정일 캘린더", src_calendar)]
 
 
