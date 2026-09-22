@@ -659,6 +659,21 @@ def src_whitehouse(st, seed):
     return out
 
 
+BIS_TARIFF = re.compile(r"tariff|section 232|harmonized tariff|proclamation|duties|import adjust", re.I)
+BIS_EXPORT = re.compile(r"export|entity list|ECCN|end-user|deemed export|license requirement|foreign direct product", re.I)
+
+
+def fedreg_who(agencies, title):
+    """BIS는 수출통제뿐 아니라 Section 232 관세도 관할한다. 제목으로 갈라야 오분류가 없다."""
+    if "Industry and Security Bureau" not in agencies:
+        return "USTR(무역대표부)", "보유종목"
+    if BIS_TARIFF.search(title) and not BIS_EXPORT.search(title):
+        return "상무부 BIS(232 관세)", "보유종목(의약품 LLY·소비재 등)"
+    if BIS_EXPORT.search(title):
+        return "상무부 BIS(수출통제)", "보유종목(반도체 MU·NVDA·CRDO 등)"
+    return "상무부 BIS", "보유종목"
+
+
 def src_fedreg(st, seed):
     d = http_json("https://www.federalregister.gov/api/v1/public-inspection-documents/current.json")
     out = []
@@ -670,14 +685,14 @@ def src_fedreg(st, seed):
         if not mark_seen(st, "fr", num, NOW.strftime("%Y-%m-%d")) or seed:
             continue
         title = (doc.get("title") or "").strip()
-        who = "상무부 BIS(수출통제)" if "Industry and Security Bureau" in agencies else "USTR(무역대표부)"
+        who, scope = fedreg_who(agencies, title)
         link = doc.get("html_url") or doc.get("pdf_url", "")
         routine = ROUTINE_KW.search(title) and doc.get("type") == "Notice"
         # 정례 절차(의견요청·설명회·자료수집)는 버리지 않고 ⚪로 낮춰 메시지 아래쪽에 모은다
         sev = INFO if routine else (RED if RED_KW.search(title) else YEL)
         kind = "의견요청·정례" if routine else doc.get("type", "")
         out.append(Alert(sev, f"{sev} [정책·연방관보 공개열람] {who} · {kind}\n   {title[:180]}",
-                         f"이 {who} 문서가 내 보유종목(반도체 등)에 미치는 영향 분석해줘: {link}"))
+                         f"이 {who} 문서가 내 {scope}에 미치는 영향 분석해줘: {link}"))
     return out
 
 
