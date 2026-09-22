@@ -518,6 +518,70 @@ def src_credit(st, seed):
     return out
 
 
+def crisis_value(rule):
+    """금융위기 지표값. fred_level=현재 수준 / fred_delta=N주(관측) 변화량."""
+    s = fred_series(rule["series"])
+    days = sorted(s)
+    if not days:
+        return None, None
+    if rule["kind"] == "fred_level":
+        return s[days[-1]], days[-1]
+    n = rule.get("weeks", 8)
+    if len(days) < n + 1:
+        return None, None
+    return s[days[-1]] - s[days[-1 - n]], days[-1]
+
+
+def crisis_note():
+    """위기 레짐 판별 + 레짐별 헤지 도구 방향. 정적 표라 시세가 없어도 출력된다."""
+    c = CFG.get("crisis") or {}
+    hedges = c.get("hedges") or []
+    if not hedges:
+        return ""
+    reg, tnx = c.get("regime") or {}, None
+    try:
+        tnx = yahoo("^TNX")["price"]
+    except Exception:  # noqa: BLE001
+        pass
+    infl = tnx is not None and tnx >= reg.get("tnx_infl", 4.5)
+    label = "인플레형(2022 유형)" if infl else "신용·디플레형(2008·2020 유형)"
+    key = "infl" if infl else "defl"
+    o = ["", f"   ┌ 레짐 판정 · {label}"
+             + (f" — 10Y {tnx:.2f}% (기준 {reg.get('tnx_infl')}%)" if tnx is not None else " — 10Y 조회 실패, 표만 참고")]
+    for h in hedges:
+        o.append(f"   │ {h.get(key, '?')} {h['name']}  2008 {h['2008']} · 2020 {h['2020']} · 2022 {h['2022']}")
+    o.append(f"   └ {reg.get('gate_msg', '')}")
+    return "\n".join(o)
+
+
+def src_crisis(st, seed):
+    """금융위기 3층 경보 — 조기(Δ) / 전이(수준) / 확인."""
+    out = []
+    for rule in (CFG.get("crisis") or {}).get("levels", []):
+        try:
+            val, asof = crisis_value(rule)
+        except Exception as e:  # noqa: BLE001
+            raise RuntimeError(f"{rule['id']}: {e}") from e
+        if val is None:
+            continue
+        ev = level_step(st, rule["id"], val, rule["op"], rule["v"], rule["hyst"])
+        if not ev or seed:
+            continue
+        shown, line = rule["fmt"].format(val), rule["fmt"].format(rule["v"])
+        tier = rule.get("tier", "")
+        ask = (f"프로젝트 크레딧 — {rule['name']} {shown} [{tier}] 경보선 "
+               f"{'점등' if ev == 'on' else '해제'}, 금융위기 단계 판정과 헷지·SGOV 트랜치 대응 알려줘")
+        if ev == "on":
+            sev = RED if tier != "조기" else YEL
+            mark = sev if tier != "조기" else "⚠️"
+            out.append(Alert(sev, f"{mark} [금융위기·{tier} 점등] {rule['name']} {shown} (기준 {rule['op']} {line}) · {asof}\n"
+                                  f"   {rule['why']}{crisis_note()}", ask))
+        else:
+            out.append(Alert(GRN, f"{GRN} [금융위기·{tier} 해제] {rule['name']} {shown} (기준 {rule['op']} {line}) · {asof}\n"
+                                  f"   {rule['why']}", ask))
+    return out
+
+
 # ───────────────────────── 5. 예측시장 (Kalshi) ─────────────────────────
 
 def kalshi_markets(series):
@@ -730,6 +794,28 @@ def status_lines(st):
                          f"2s10s {v['sp']:+.0f}bp, 변화 {v['dsp']:+.0f}bp/{s['spread_bp']} · {s['days']}거래일~{v['d1']})")
         except Exception as e:  # noqa: BLE001
             lines.append(f"  ? 약세 스티프닝: 조회 실패 ({str(e)[:80]})")
+    cl = (CFG.get("crisis") or {}).get("levels") or []
+    if cl:
+        lines.append("[금융위기 지표] 조기Δ → 전이수준 → 확인")
+        for rule in cl:
+            try:
+                val, asof = crisis_value(rule)
+            except Exception as e:  # noqa: BLE001
+                lines.append(f"  ? {rule['name']}: 조회 실패 ({str(e)[:60]})")
+                continue
+            if val is None:
+                lines.append(f"  ? {rule['name']}: 데이터 부족")
+                continue
+            on = st["levels"].get(rule["id"], False)
+            lines.append(f"  {RED if on else GRN} [{rule['tier']}] {rule['name']} {rule['fmt'].format(val)}"
+                         f"  (기준 {rule['op']} {rule['fmt'].format(rule['v'])} · {asof})")
+        try:
+            t = yahoo("^TNX")["price"]
+            thr = ((CFG.get("crisis") or {}).get("regime") or {}).get("tnx_infl", 4.5)
+            lines.append(f"  → 레짐: {'인플레형(2022 유형) — TLT·GLD 헤지 무효' if t >= thr else '신용·디플레형 — TLT·GLD 유효'}"
+                         f" (10Y {t:.2f}%/{thr}%)")
+        except Exception:  # noqa: BLE001
+            pass
     n_us = len(CFG["us_holdings"]) + len([t for t in CFG["us_watch"] if t not in CFG["us_holdings"]])
     lines += ["", f"[감시 대상] 미국 {n_us}종(보유 {len(CFG['us_holdings'])}·관심 {n_us - len(CFG['us_holdings'])}) · "
                   f"한국 {len(CFG['kr_holdings'])}종 · 예측시장 {len(CFG['kalshi']['series'])}개 시리즈 · 백악관·연방관보"]
@@ -764,6 +850,7 @@ def send(text, dry):
 
 
 BASE_SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시세", src_macro),
+                ("금융위기 지표", src_crisis),
            ("크레딧(FRED)", src_credit), ("금리 레짐(FRED)", src_steepener), ("예측시장(Kalshi)", src_kalshi),
            ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg), ("판정일 캘린더", src_calendar)]
 
