@@ -13,6 +13,7 @@ import email.utils
 import json
 import os
 import re
+import statistics
 import sys
 import time
 import urllib.parse
@@ -287,13 +288,27 @@ def yahoo(sym):
     off = timedelta(seconds=m.get("gmtoffset", 0))
     mtime = datetime.fromtimestamp(m["regularMarketTime"], timezone.utc)
     bar_date = (mtime + off).strftime("%Y-%m-%d")
-    closes = res["indicators"]["quote"][0]["close"]
+    q0 = res["indicators"]["quote"][0]
+    closes, vols = q0["close"], (q0.get("volume") or [])
     prev = None
-    for ts, c in zip(res["timestamp"], closes):
-        if c is not None and (datetime.fromtimestamp(ts, timezone.utc) + off).strftime("%Y-%m-%d") < bar_date:
+    hist_c, hist_v, today_v = [], [], None
+    for i, (ts, c) in enumerate(zip(res["timestamp"], closes)):
+        if c is None:
+            continue
+        d = (datetime.fromtimestamp(ts, timezone.utc) + off).strftime("%Y-%m-%d")
+        v = vols[i] if i < len(vols) else None
+        if d < bar_date:
             prev = c
+            hist_c.append(c)
+            if v:
+                hist_v.append(v)
+        elif d == bar_date and v:
+            today_v = v
     out = {"price": m["regularMarketPrice"], "prev": prev, "high": m.get("fiftyTwoWeekHigh"),
-           "date": bar_date, "stale": (NOW - mtime) > timedelta(days=5)}
+           "date": bar_date, "stale": (NOW - mtime) > timedelta(days=5),
+           "vol": today_v,
+           "vol_med": statistics.median(hist_v[-40:]) if len(hist_v) >= 20 else None,
+           "ma50": (sum(hist_c[-50:]) / 50) if len(hist_c) >= 50 else None}
     _YCACHE[sym] = out
     return out
 
@@ -308,6 +323,10 @@ def level_value(rule):
     if kind == "spread":
         y2 = yahoo(rule["sym2"])
         return None if y2["stale"] else y["price"] - y2["price"]
+    if kind == "volratio":  # 당일 거래량 ÷ 직전 40거래일 중앙값 (전쟁-운임 플레이북 1순위)
+        return None if not (y.get("vol") and y.get("vol_med")) else y["vol"] / y["vol_med"]
+    if kind == "ma50gap":   # 50일선 대비 %
+        return None if not y.get("ma50") else (y["price"] / y["ma50"] - 1) * 100
     return y["price"]
 
 

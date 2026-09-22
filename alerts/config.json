@@ -221,6 +221,39 @@
       "v": 10.0,
       "hyst": 0.5,
       "why": "war v8 경계 $10 — 비용 충격 → 물량 충격 전환 (유가 스파이크 경로)"
+    },
+    {
+      "id": "bwet_vol",
+      "sym": "BWET",
+      "name": "BWET 거래량배수",
+      "kind": "volratio",
+      "fmt": "{:.1f}x",
+      "op": ">=",
+      "v": 10.0,
+      "hyst": 4.0,
+      "why": "전쟁-운임 플레이북 1순위 — 거래량이 가격보다 1~2주 선행. 2025-01-07 21.3x 점등 시 종가 $9.36 → 이후 최대 93.2배. BWET=TD3C(중동→중국 VLCC) 90%"
+    },
+    {
+      "id": "bdry_vol",
+      "sym": "BDRY",
+      "name": "BDRY 거래량배수",
+      "kind": "volratio",
+      "fmt": "{:.1f}x",
+      "op": ">=",
+      "v": 8.0,
+      "hyst": 3.0,
+      "why": "건화물 운임 — 러-우·발트 분쟁 도구. 주의: 대만 시나리오에서는 역방향(중국 원자재 수입 감소)"
+    },
+    {
+      "id": "bwet_ma50",
+      "sym": "BWET",
+      "name": "BWET 50일선 대비",
+      "kind": "ma50gap",
+      "fmt": "{:+.1f}%",
+      "op": "<=",
+      "v": 0.0,
+      "hyst": 3.0,
+      "why": "war v10 물리 프리미엄 해제 신호 — 운임은 금융 프리미엄(유가)보다 늦게 빠진다. 50일선 이탈 = 봉쇄 완화 시작"
     }
   ],
   "macro_shocks": [
@@ -301,6 +334,13 @@
       "kind": "pct",
       "v": 1.2,
       "fmt": "{:,.1f}"
+    },
+    {
+      "sym": "BWET",
+      "name": "BWET(원유 운임선물)",
+      "kind": "pct",
+      "v": 15.0,
+      "fmt": "${:,.2f}"
     }
   ],
   "credit": {
@@ -609,7 +649,12 @@
     "KXIPOANTHROPIC": "프로젝트 ai",
     "tnx525": "프로젝트 fed",
     "tnx_move": "프로젝트 fed",
-    "bear_steep": "프로젝트 fed"
+    "bear_steep": "프로젝트 fed",
+    "bwet_vol": "프로젝트 war",
+    "bdry_vol": "프로젝트 war",
+    "bwet_ma50": "프로젝트 war",
+    "BWET": "프로젝트 war",
+    "BDRY": "프로젝트 war"
   },
   "fedreg_agencies": [
     "Industry and Security Bureau",
