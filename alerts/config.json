@@ -254,6 +254,17 @@
       "v": 0.0,
       "hyst": 3.0,
       "why": "war v10 물리 프리미엄 해제 신호 — 운임은 금융 프리미엄(유가)보다 늦게 빠진다. 50일선 이탈 = 봉쇄 완화 시작"
+    },
+    {
+      "id": "bwet_dd30",
+      "sym": "BWET",
+      "name": "BWET 고점대비",
+      "kind": "drawdown",
+      "fmt": "{:+.1f}%",
+      "op": "<=",
+      "v": -30.0,
+      "hyst": 5.0,
+      "why": "플레이북 2단계 — 2차 진입 창. 중동 사례에서 -39.6% 급락(2026-06-22) 후에도 이후 6.8배였다"
     }
   ],
   "macro_shocks": [
@@ -654,7 +665,8 @@
     "bdry_vol": "프로젝트 war",
     "bwet_ma50": "프로젝트 war",
     "BWET": "프로젝트 war",
-    "BDRY": "프로젝트 war"
+    "BDRY": "프로젝트 war",
+    "bwet_dd30": "프로젝트 war"
   },
   "fedreg_agencies": [
     "Industry and Security Bureau",
@@ -726,6 +738,76 @@
       "tnx_bp": 10,
       "spread_bp": 5,
       "why": "fed 2단계 ★가장 위험 — 10Y가 오르면서 2s10s가 벌어짐 = 연준이 아니라 장기 위험프리미엄(재정·수급) 발작. 지금까지는 2년물 주도 축소(bear flattening)였다"
+    }
+  },
+  "war_freight": {
+    "_comment": "전쟁-운임 플레이북 0단계(분쟁→도구 매핑)·2단계(진입 게이트) 자동 판정. 운임 경보선 점등 시 알림 본문에 첨부된다.",
+    "gate_msg": "🚫 양방향·역방향이면 ★진입하지 않는다 — 0단계에서 탈락시킬 것",
+    "tools": {
+      "BWET": {
+        "name": "원유 탱커 운임선물",
+        "detail": "TD3C(중동→중국 VLCC) 90% + Suezmax 10% · 보수 3.5%"
+      },
+      "BDRY": {
+        "name": "건화물 운임선물",
+        "detail": "Capesize·Panamax·Supramax FFA · 보수 3.5%"
+      }
+    },
+    "conflicts": [
+      {
+        "id": "hormuz",
+        "name": "호르무즈·중동",
+        "kalshi": [
+          "KXHORMUZNORM",
+          "KXUSAIRANAGREEMENT"
+        ],
+        "dir": {
+          "BWET": "정방향",
+          "BDRY": "무관"
+        },
+        "why": "BWET=TD3C가 정확히 이 항로(2026 실증 64배) / BDRY=무관"
+      },
+      {
+        "id": "taiwan",
+        "name": "대만해협",
+        "kalshi": [
+          "KXTAIWANLVL4",
+          "KXXITAIWAN"
+        ],
+        "dir": {
+          "BWET": "★양방향",
+          "BDRY": "★역방향"
+        },
+        "why": "BWET=우회 톤마일↑ vs 중국 물량↓ 가 상충 / BDRY=중국 원자재 수입 감소로 하락"
+      },
+      {
+        "id": "russia_baltic",
+        "name": "러-우·발트",
+        "kalshi": [],
+        "dir": {
+          "BWET": "약정방향",
+          "BDRY": "정방향"
+        },
+        "why": "BDRY=곡물·석탄이 BDI를 직접 움직임 / BWET=간접"
+      },
+      {
+        "id": "redsea",
+        "name": "홍해·수에즈",
+        "kalshi": [],
+        "dir": {
+          "BWET": "정방향",
+          "BDRY": "무관"
+        },
+        "why": "본체는 컨테이너인데 상장 도구 없음(SCFI ETF 부재) / BWET=우회로 간접 수혜"
+      }
+    ],
+    "entry": {
+      "tranche1_pct": 0.5,
+      "tranche2_pct": 0.5,
+      "cap_pct": 1.0,
+      "ma200_block": 100.0,
+      "dd2_pct": -30.0,
+      "why": "가격 사이클 베팅 규율 ≤1% · 200일선 +100% 초과 구간 신규 진입 금지 · 2차는 -30% 급락에서만"
     }
   }
 }

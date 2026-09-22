@@ -308,9 +308,44 @@ def yahoo(sym):
            "date": bar_date, "stale": (NOW - mtime) > timedelta(days=5),
            "vol": today_v,
            "vol_med": statistics.median(hist_v[-40:]) if len(hist_v) >= 20 else None,
-           "ma50": (sum(hist_c[-50:]) / 50) if len(hist_c) >= 50 else None}
+           "ma50": (sum(hist_c[-50:]) / 50) if len(hist_c) >= 50 else None,
+           "ma200": (sum(hist_c[-200:]) / 200) if len(hist_c) >= 200 else None}
     _YCACHE[sym] = out
     return out
+
+
+def freight_note(sym):
+    """전쟁-운임 플레이북 0단계(도구 매핑)·2단계(진입 게이트) 자동 판정.
+    0단계는 정적 표라 항상 나오고, 2단계는 시세 기반이라 값이 없으면 생략된다."""
+    wf = CFG.get("war_freight") or {}
+    tool = (wf.get("tools") or {}).get(sym)
+    if not tool:
+        return ""
+    o = ["", f"   ┌ 0단계 · {sym}({tool['name']}) 분쟁별 방향 — {tool['detail']}"]
+    for c in wf.get("conflicts", []):
+        d = c["dir"].get(sym, "?")
+        mark = "✅" if d == "정방향" else ("🚫" if ("양방향" in d or "역방향" in d) else "△")
+        o.append(f"   │ {mark} {c['name']}: {d} — {c['why']}")
+    o.append(f"   └ {wf.get('gate_msg', '')}")
+    try:
+        y = yahoo(sym)
+    except Exception:  # noqa: BLE001
+        return "\n".join(o)
+    e = wf.get("entry") or {}
+    o.append("   ┌ 2단계 · 진입 게이트")
+    if y.get("ma200") and e.get("ma200_block") is not None:
+        gap = (y["price"] / y["ma200"] - 1) * 100
+        blk = gap >= e["ma200_block"]
+        o.append(f"   │ {'🚫' if blk else '✅'} 200일선 대비 {gap:+.0f}% (차단 +{e['ma200_block']:.0f}%)"
+                 f" → {'신규 진입 금지' if blk else '1차 진입 가능'}")
+    if y.get("high") and e.get("dd2_pct") is not None:
+        dd = (y["price"] / y["high"] - 1) * 100
+        opn = dd <= e["dd2_pct"]
+        o.append(f"   │ {'✅' if opn else '⬜'} 고점 대비 {dd:+.0f}% (2차 창 {e['dd2_pct']:.0f}%)"
+                 f" → {'2차 진입 창 열림' if opn else '2차 창 닫힘'}")
+    o.append(f"   └ 사이징 1차 {e.get('tranche1_pct')}% · 2차 {e.get('tranche2_pct')}%"
+             f" · 총 상한 {e.get('cap_pct')}% (가격 사이클 베팅)")
+    return "\n".join(o)
 
 
 def level_value(rule):
@@ -370,8 +405,9 @@ def src_macro(st, seed):
         if ev and not seed:
             shown, line = rule["fmt"].format(val), rule["fmt"].format(rule["v"])
             ask = f"{trig(rule['id'])} — {rule['name']} {shown} 경보선 {'점등' if ev == 'on' else '해제'}({rule['why'].split(' — ')[0]}), 대응 판정해줘"
+            note = freight_note(rule["sym"]) if ev == "on" else ""
             if ev == "on":
-                out.append(Alert(RED, f"{RED} [매크로·경보선 점등] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}", ask))
+                out.append(Alert(RED, f"{RED} [매크로·경보선 점등] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}{note}", ask))
             else:
                 out.append(Alert(GRN, f"{GRN} [매크로·경보선 해제] {rule['name']} {shown} (기준 {rule['op']} {line})\n   {rule['why']}", ask))
     for combo in CFG.get("rate_regimes", {}).get("combo", []):
