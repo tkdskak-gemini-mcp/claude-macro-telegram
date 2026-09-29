@@ -661,6 +661,7 @@
     "tnx525": "프로젝트 fed",
     "tnx_move": "프로젝트 fed",
     "bear_steep": "프로젝트 fed",
+    "sell_america": "프로젝트 fed",
     "bwet_vol": "프로젝트 war",
     "bdry_vol": "프로젝트 war",
     "bwet_ma50": "프로젝트 war",
@@ -743,6 +744,15 @@
       "tnx_bp": 10,
       "spread_bp": 5,
       "why": "fed 2단계 ★가장 위험 — 10Y가 오르면서 2s10s가 벌어짐 = 연준이 아니라 장기 위험프리미엄(재정·수급) 발작. 지금까지는 2년물 주도 축소(bear flattening)였다"
+    },
+    "sell_america": {
+      "_comment": "2026-09-29 신설. 10년 백테스트: 10Y+DXY 2조건=14회(2020 리플레이션 오탐 포함) → S&P 하락 추가 3조건=6회·2025-04-10 포착",
+      "id": "sell_america",
+      "days": 5,
+      "tnx_bp": 10,
+      "dxy_pct": -1.0,
+      "spx_pct": 0.0,
+      "why": "fed 판정 ⑤축 — 금리↑인데 달러↓·주식↓ = 채권·달러·주식 트리플 매도 = 재정 신뢰 위기(2025-04형). bear_steep이 「재정 발작」인지 가르는 확인 신호. ★인플레형 유일 헤지였던 UUP도 이때는 무효(달러 하락) → 피난처는 SGOV(T-bill)뿐"
     }
   },
   "war_freight": {

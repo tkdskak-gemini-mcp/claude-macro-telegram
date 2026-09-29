@@ -495,6 +495,57 @@ def src_steepener(st, seed):
                   f"{trig(s['id'])} — 약세 스티프닝 2단계 경보 {word}({body}), 대응 판정해줘")]
 
 
+_YCLOSE = {}
+
+
+def yahoo_closes(sym):
+    """{날짜: 종가} — 날짜 정렬이 필요한 경보(FRED 거래일과 맞춤)용."""
+    if sym not in _YCLOSE:
+        q = urllib.parse.quote(sym)
+        res = http_json(f"https://query1.finance.yahoo.com/v8/finance/chart/{q}?range=3mo&interval=1d")["chart"]["result"][0]
+        off = timedelta(seconds=res["meta"].get("gmtoffset", 0))
+        _YCLOSE[sym] = {(datetime.fromtimestamp(ts, timezone.utc) + off).strftime("%Y-%m-%d"): c
+                        for ts, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]) if c is not None}
+    return _YCLOSE[sym]
+
+
+def sell_america_value():
+    """FRED 10Y·Yahoo DXY·S&P 공통 거래일 기준 N거래일 변화. 세 시리즈가 모두 있는 날짜만 쓴다."""
+    s = CFG["rate_regimes"]["sell_america"]
+    t10, dx, sp = fred_series("DGS10"), yahoo_closes("DX-Y.NYB"), yahoo_closes("^GSPC")
+    days = sorted(set(t10) & set(dx) & set(sp))[-(s["days"] + 1):]
+    if len(days) < s["days"] + 1:
+        raise RuntimeError(f"DGS10·DXY·S&P 공통 관측일 부족({len(days)})")
+    d0, d1 = days[0], days[-1]
+    return {"d0": d0, "d1": d1, "t10": t10[d1], "dxy": dx[d1],
+            "d10": (t10[d1] - t10[d0]) * 100,
+            "ddx": (dx[d1] / dx[d0] - 1) * 100,
+            "dsp": (sp[d1] / sp[d0] - 1) * 100}
+
+
+def src_sell_america(st, seed):
+    s = CFG.get("rate_regimes", {}).get("sell_america")
+    if not s:
+        return []
+    v = sell_america_value()
+    was = st["levels"].get(s["id"], False)
+    hit = v["d10"] >= s["tnx_bp"] and v["ddx"] <= s["dxy_pct"] and v["dsp"] < s["spx_pct"]
+    cleared = v["d10"] < s["tnx_bp"] / 2 or v["ddx"] > 0
+    ev = None
+    if not was and hit:
+        st["levels"][s["id"]], ev = True, "on"
+    elif was and cleared:
+        st["levels"][s["id"]], ev = False, "off"
+    if not ev or seed:
+        return []
+    word, sev = ("점등", RED) if ev == "on" else ("해제", GRN)
+    body = (f"10Y {v['t10']:.2f}% ({v['d10']:+.0f}bp) · DXY {v['dxy']:.2f} ({v['ddx']:+.2f}%) · S&P {v['dsp']:+.1f}%"
+            f" · {v['d0']}→{v['d1']} ({s['days']}거래일)")
+    return [Alert(sev, f"{sev} [매크로·2단계 경보 {word}] Sell America(채권·달러·주식 트리플 매도)\n   {body}\n"
+                       f"   기준: 10Y {s['tnx_bp']}bp↑ 그리고 DXY {s['dxy_pct']:+.1f}% 이하 그리고 S&P 하락\n   {s['why']}",
+                  f"{trig(s['id'])} — Sell America 2단계 경보 {word}({body}), 재정 신뢰 위기인지 대응 판정해줘")]
+
+
 def src_credit(st, seed):
     c = CFG["credit"]
     (hd0, hy0), (hd1, hy1) = fred_last2("BAMLH0A0HYM2")
@@ -809,6 +860,15 @@ def status_lines(st):
                          f"2s10s {v['sp']:+.0f}bp, 변화 {v['dsp']:+.0f}bp/{s['spread_bp']} · {s['days']}거래일~{v['d1']})")
         except Exception as e:  # noqa: BLE001
             lines.append(f"  ? 약세 스티프닝: 조회 실패 ({str(e)[:80]})")
+    if rr.get("sell_america"):
+        s = rr["sell_america"]
+        try:
+            v = sell_america_value()
+            on = st["levels"].get(s["id"], False)
+            lines.append(f"  {RED if on else GRN} Sell America  (10Y {v['d10']:+.0f}bp/{s['tnx_bp']} · "
+                         f"DXY {v['ddx']:+.2f}%/{s['dxy_pct']:+.1f} · S&P {v['dsp']:+.1f}%/<0 · {s['days']}거래일~{v['d1']})")
+        except Exception as e:  # noqa: BLE001
+            lines.append(f"  ? Sell America: 조회 실패 ({str(e)[:80]})")
     cl = (CFG.get("crisis") or {}).get("levels") or []
     if cl:
         lines.append("[금융위기 지표] 조기Δ → 전이수준 → 확인")
@@ -866,7 +926,8 @@ def send(text, dry):
 
 BASE_SOURCES = [("SEC 공시", src_sec), ("DART 공시", src_dart), ("매크로 시세", src_macro),
                 ("금융위기 지표", src_crisis),
-           ("크레딧(FRED)", src_credit), ("금리 레짐(FRED)", src_steepener), ("예측시장(Kalshi)", src_kalshi),
+           ("크레딧(FRED)", src_credit), ("금리 레짐(FRED)", src_steepener), ("Sell America", src_sell_america),
+           ("예측시장(Kalshi)", src_kalshi),
            ("백악관 발표", src_whitehouse), ("연방관보", src_fedreg), ("판정일 캘린더", src_calendar)]
 
 
