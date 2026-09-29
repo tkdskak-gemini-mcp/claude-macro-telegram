@@ -348,6 +348,39 @@ def freight_note(sym):
     return "\n".join(o)
 
 
+MONTHS = "FGHJKMNQUVXZ"
+
+
+def front_contract(rule):
+    """연속물(BZ=F 등)이 지금 가리키는 실제 월물 코드. 만기 교체일에 연속물의 전일 종가는 ★다른 월물이라
+    급변률·스프레드가 가짜로 나온다(2026-09-28 브렌트 11월물→12월물 교체 시 −5.3% 착시).
+    이번 달부터 4개월 월물 중 연속물 현재가와 가장 가까운 것을 고른다. 1% 넘게 어긋나면 None."""
+    root = rule.get("root")
+    if not root:
+        return None
+    cont = yahoo(rule["sym"])["price"]
+    best = None
+    for k in range(4):
+        m, yr = (NOW.month - 1 + k) % 12, NOW.year + (NOW.month - 1 + k) // 12
+        sym = f"{root}{MONTHS[m]}{yr % 100:02d}.{rule['exch']}"
+        try:
+            y = yahoo(sym)
+        except Exception:  # noqa: BLE001
+            continue
+        if y["stale"]:
+            continue
+        diff = abs(y["price"] - cont) / cont
+        if best is None or diff < best[0]:
+            best = (diff, sym)
+    return best[1] if best and best[0] <= 0.01 else None
+
+
+def same_month(sym, root2):
+    """BZZ26.NYM → CLZ26.NYM (같은 인도월 비교용)."""
+    code = sym.split(".")[0][-3:]
+    return f"{root2}{code}.{sym.split('.')[1]}"
+
+
 def level_value(rule):
     y = yahoo(rule["sym"])
     if y["stale"]:
@@ -356,8 +389,12 @@ def level_value(rule):
     if kind == "drawdown":
         return (y["price"] / y["high"] - 1) * 100
     if kind == "spread":
-        y2 = yahoo(rule["sym2"])
-        return None if y2["stale"] else y["price"] - y2["price"]
+        fc = front_contract(rule)
+        if fc:  # 같은 인도월끼리 (연속물끼리는 만기가 달라 월물이 어긋난다)
+            y, y2 = yahoo(fc), yahoo(same_month(fc, rule["root2"]))
+        else:
+            y2 = yahoo(rule["sym2"])
+        return None if (y["stale"] or y2["stale"]) else y["price"] - y2["price"]
     if kind == "volratio":  # 당일 거래량 ÷ 직전 40거래일 중앙값 (전쟁-운임 플레이북 1순위)
         return None if not (y.get("vol") and y.get("vol_med")) else y["vol"] / y["vol_med"]
     if kind == "ma50gap":   # 50일선 대비 %
@@ -422,7 +459,8 @@ def src_macro(st, seed):
             out.append(Alert(sev, f"{sev} [매크로·2단계 경보 {word}] {combo['name']}\n   {vals}\n   {combo['why']}",
                              f"{trig(combo['id'])} — {combo['name']} 2단계 경보 {word}({vals}), 대응 판정해줘"))
     for rule in CFG["macro_shocks"]:
-        y = yahoo(rule["sym"])
+        fc = front_contract(rule)
+        y = yahoo(fc) if fc else yahoo(rule["sym"])  # 월물 자신의 전일 종가 대비 (롤오버 착시 차단)
         if y["stale"] or not y["prev"]:
             continue
         chg = y["price"] - y["prev"]
@@ -439,7 +477,8 @@ def src_macro(st, seed):
             continue
         arrow = "▲" if chg > 0 else "▼"
         move = f"{chg:+.3f}%p" if rule["kind"] == "abs" else f"{pct:+.2f}%"
-        out.append(Alert(YEL, f"⚡ [매크로·급변] {rule['name']} {arrow} {move} → {rule['fmt'].format(y['price'])}\n"
+        tag = f"({fc.split('.')[0]}) " if fc else ""
+        out.append(Alert(YEL, f"⚡ [매크로·급변] {rule['name']} {tag}{arrow} {move} → {rule['fmt'].format(y['price'])}\n"
                               f"   하루 변동 기준 ±{rule['v']}{rule.get('unit', '%')} 초과 · {y['date']}",
                          f"{trig(rule['sym'])} — {rule['name']} 하루 {move} 급변, 원인과 내 포트 영향 분석해줘"))
     return out
