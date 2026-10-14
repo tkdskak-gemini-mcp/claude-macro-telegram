@@ -309,6 +309,7 @@ def yahoo(sym):
            "vol": today_v,
            "vol_med": statistics.median(hist_v[-40:]) if len(hist_v) >= 20 else None,
            "ma50": (sum(hist_c[-50:]) / 50) if len(hist_c) >= 50 else None,
+           "ret20": (m["regularMarketPrice"] / hist_c[-20] - 1) * 100 if len(hist_c) >= 20 else None,
            "ma200": (sum(hist_c[-200:]) / 200) if len(hist_c) >= 200 else None}
     _YCACHE[sym] = out
     return out
@@ -381,6 +382,14 @@ def same_month(sym, root2):
     return f"{root2}{code}.{sym.split('.')[1]}"
 
 
+def next_month(sym):
+    """BZZ26.NYM → BZF27.NYM (근월물−차월물 백워데이션용)."""
+    base, exch = sym.split(".")
+    root, mon, yr = base[:-3], MONTHS.index(base[-3]), int(base[-2:])
+    mon, yr = (mon + 1) % 12, yr + (mon + 1) // 12
+    return f"{root}{MONTHS[mon]}{yr:02d}.{exch}"
+
+
 def level_value(rule):
     y = yahoo(rule["sym"])
     if y["stale"]:
@@ -399,6 +408,17 @@ def level_value(rule):
         return None if not (y.get("vol") and y.get("vol_med")) else y["vol"] / y["vol_med"]
     if kind == "ma50gap":   # 50일선 대비 %
         return None if not y.get("ma50") else (y["price"] / y["ma50"] - 1) * 100
+    if kind == "calspread":  # 근월물 − 차월물 (양수 = 백워데이션 = 실물 부족)
+        fc = front_contract(rule)
+        if not fc:
+            return None
+        y1, y2 = yahoo(fc), yahoo(next_month(fc))
+        return None if (y1["stale"] or y2["stale"]) else y1["price"] - y2["price"]
+    if kind == "divergence":  # 바스켓 20일 수익률 (기준 종목이 버티는 동안만, 아니면 0 = 해제 방향)
+        ys = [yahoo(s) for s in rule["basket"]]
+        if any(b["stale"] or b.get("ret20") is None for b in ys) or y.get("ret20") is None:
+            return None
+        return sum(b["ret20"] for b in ys) / len(ys) if y["ret20"] >= rule["ref_min"] else 0.0
     return y["price"]
 
 
