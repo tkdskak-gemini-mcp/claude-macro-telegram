@@ -607,6 +607,8 @@ def src_sell_america(st, seed):
 
 def src_credit(st, seed):
     c = CFG["credit"]
+    if not c.get("enabled", True):          # 2026-10-20 LP: 자비스 riskwatch로 이전(⑨) — 중복 방지
+        return []
     (hd0, hy0), (hd1, hy1) = fred_last2("BAMLH0A0HYM2")
     (_, ccc0), (cd1, ccc1) = fred_last2("BAMLH0A3HYC")
     out = []
@@ -667,7 +669,7 @@ def crisis_note():
 def src_crisis(st, seed):
     """금융위기 3층 경보 — 조기(Δ) / 전이(수준) / 확인."""
     out = []
-    for rule in (CFG.get("crisis") or {}).get("levels", []):
+    for rule in [r for r in (CFG.get("crisis") or {}).get("levels", []) if not r.get("off")]:
         try:
             val, asof = crisis_value(rule)
         except Exception as e:  # noqa: BLE001

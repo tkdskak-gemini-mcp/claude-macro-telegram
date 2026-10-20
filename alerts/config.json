@@ -285,7 +285,10 @@
     {
       "id": "tanker_div",
       "sym": "BWET",
-      "basket": ["FRO", "DHT"],
+      "basket": [
+        "FRO",
+        "DHT"
+      ],
       "ref_min": 0.0,
       "name": "탱커주 20일 수익률(BWET 버티는 중)",
       "kind": "divergence",
@@ -393,7 +396,9 @@
     "ratio_level": 3.0,
     "ratio_hyst": 0.1,
     "hy_shock_bp": 15,
-    "why_ratio": "크레딧 v6 — CCC÷HY 3배 초과 = 지수는 평온해도 꼬리는 무너진 것 (헷지 축소 금지)"
+    "why_ratio": "크레딧 v6 — CCC÷HY 3배 초과 = 지수는 평온해도 꼬리는 무너진 것 (헷지 축소 금지)",
+    "enabled": false,
+    "_moved": "2026-10-20 자비스 riskwatch.py로 이전(CCC÷HY 3배·HY/CCC 하루 급확대) — 여기서는 끔"
   },
   "kalshi": {
     "min_oi": 10000,
@@ -925,7 +930,9 @@
         "op": ">=",
         "v": 4.0,
         "hyst": 0.25,
-        "why": "확인 — 현재 2.68%는 3년 중 ★8.4분위(극도 평온). 4.0% 돌파 = 꼬리에서 공모 신용으로 전이"
+        "why": "확인 — 현재 2.68%는 3년 중 ★8.4분위(극도 평온). 4.0% 돌파 = 꼬리에서 공모 신용으로 전이",
+        "off": true,
+        "_moved": "2026-10-20 자비스 riskwatch(HY 3.50%·4.00%)로 이전"
       }
     ],
     "regime": {
