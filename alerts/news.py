@@ -75,6 +75,13 @@ def fetch_feed(feed):
                         # '오늘의 논문' 목록이라 게재일이 며칠 전이어도 오늘 화제인 것으로 본다
                         "ts": core.NOW, "votes": p.get("upvotes", 0)})
         return out
+    if feed.get("kind") == "guru_html":            # RSS 없는 곳(오크트리 메모) — 목록 페이지의 글 주소를 읽는다
+        base = re.match(r"https?://[^/]+", feed["url"]).group(0)
+        for path in dict.fromkeys(re.findall(feed["pattern"], raw.decode("utf-8", "replace") if isinstance(raw, bytes) else raw)):
+            slug = path.rstrip("/").split("/")[-1]
+            out.append({"title": slug.replace("-", " ").strip().title(), "url": base + path if path.startswith("/") else path,
+                        "summary": "", "ts": core.NOW, "votes": 0})
+        return out
     root = ET.fromstring(raw)
     items = list(root.iter("item")) or list(root.iter("{http://www.w3.org/2005/Atom}entry"))
     for it in items:
@@ -114,12 +121,41 @@ def key_of(url):
     return hashlib.sha1(url.encode()).hexdigest()[:12]
 
 
+def guru_alerts(st, feed, items):
+    """10/23 LP: 구루 새 글은 매체 2곳 조건 없이 바로 알린다(무음). 처음 보는 피드는 기준점만 저장(알림 폭주 방지).
+    본 글 기록은 영구 보관(뉴스 14일 기록과 따로) — RSS 밖으로 밀려난 옛 글이 다시 「새 글」로 오지 않게."""
+    seen = st.setdefault("guru_seen", {})
+    first = feed["name"] not in seen
+    have = set(seen.get(feed["name"], []))
+    new = [it for it in items if key_of(it["url"]) not in have]
+    seen[feed["name"]] = (list(have) + [key_of(it["url"]) for it in new])[-300:]
+    if first:
+        return [], []
+    out = []
+    for it in new[:3]:
+        out.append(core.Alert(core.INFO, f"📚 [구루 새 글] {feed['who']} — {it['title'][:120]}\n   {it['summary'][:220]}\n   {it['url']}",
+                              f"이 글을 요약하고 내 thesis에 주는 영향 검토해줘 — {feed['who']} 「{it['title'][:60]}」: {it['url']}"))
+    return out, new
+
+
 def collect(st, seed):
     pool = st.setdefault("news", {})
-    errs, fresh = [], []
+    errs, fresh, gurus = [], [], []
     for feed in N()["feeds"]:
         try:
-            for it in fetch_feed(feed):
+            got = fetch_feed(feed)
+            if feed.get("kind", "").startswith("guru"):
+                recent = [it for it in got if (core.NOW - it["ts"]).total_seconds() <= 14 * 86400]
+                al, new = guru_alerts(st, feed, recent)
+                if not seed:
+                    gurus += al
+                for it in new:                      # 새 글만 요약(하루 2회)에도 넣는다
+                    k = key_of(it["url"])
+                    if k not in pool:
+                        pool[k] = {"t": it["title"][:300], "s": feed["who"], "g": "S", "ts": it["ts"].isoformat(),
+                                   "sum": it["summary"][:400], "u": it["url"], "kind": "guru", "labs": labels_of(it["title"] + " " + it["summary"]), "v": 0}
+                continue
+            for it in got:
                 if (core.NOW - it["ts"]).total_seconds() > N()["pool_keep_h"] * 3600:
                     continue
                 k = key_of(it["url"])
@@ -142,7 +178,7 @@ def collect(st, seed):
     for k in [k for k, v in pool.items() if datetime.fromisoformat(v["ts"]) < cut]:
         del pool[k]
 
-    out = []
+    out = list(gurus)
     if not seed:
         out += hot_alerts(st, pool, fresh)
         # 논문은 즉시 알리지 않는다 — 추천수가 높아도 투자와 무관한 연구가 대부분이라
@@ -210,7 +246,7 @@ def digest(dry=False):
     pool = st.get("news", {})
     since = core.NOW - timedelta(hours=14)
     items = [v for v in pool.values() if datetime.fromisoformat(v["ts"]) >= since and (v["labs"] or v["kind"] != "news")]
-    items.sort(key=lambda v: (len(v["labs"]) + (2 if v["g"] == "S" else 0) + min(v["v"], 200) / 100), reverse=True)
+    items.sort(key=lambda v: (len(v["labs"]) + (2 if v["g"] == "S" else 0) + (4 if v["kind"] == "guru" else 0) + min(v["v"], 200) / 100), reverse=True)
     items = items[:45]
     if not items:
         st["news_digest_last"] = slot
@@ -222,7 +258,7 @@ def digest(dry=False):
     lines = []
     for v in items:
         when = datetime.fromisoformat(v["ts"]).astimezone(core.KST).strftime("%m/%d %H:%M")
-        tag = f"논문·추천{v['v']}" if v["kind"] == "hf" else v["kind"]
+        tag = f"논문·추천{v['v']}" if v["kind"] == "hf" else ("구루 글" if v["kind"] == "guru" else v["kind"])
         lines.append(f"- [{v['g']}·{v['s']}·{tag}·{when}] {v['t']}\n  요약: {v['sum'][:300]}\n  링크: {v['u']}\n"
                      f"  키워드매칭: {', '.join(v['labs']) or '없음'}")
     with open(os.path.join(repo_dir(), "prompts", "news_digest.md"), encoding="utf-8") as f:

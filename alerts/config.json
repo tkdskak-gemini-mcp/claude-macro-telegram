@@ -517,6 +517,70 @@
         "grade": "S",
         "kind": "hf",
         "url": "https://huggingface.co/api/daily_papers"
+      },
+      {
+        "name": "다모다란 (밸류에이션)",
+        "who": "다모다란 (밸류에이션)",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://aswathdamodaran.blogspot.com/feeds/posts/default"
+      },
+      {
+        "name": "벤 톰프슨 · Stratechery",
+        "who": "벤 톰프슨 · Stratechery",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://stratechery.com/feed/"
+      },
+      {
+        "name": "SemiAnalysis (AI 인프라·반도체)",
+        "who": "SemiAnalysis (AI 인프라·반도체)",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://newsletter.semianalysis.com/feed"
+      },
+      {
+        "name": "Fabricated Knowledge (반도체)",
+        "who": "Fabricated Knowledge (반도체)",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://www.fabricatedknowledge.com/feed"
+      },
+      {
+        "name": "마이클 버리 · Cassandra Unchained",
+        "who": "마이클 버리 · Cassandra Unchained",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://michaeljburry.substack.com/feed"
+      },
+      {
+        "name": "Doomberg (에너지·원자재)",
+        "who": "Doomberg (에너지·원자재)",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://doomberg.substack.com/feed"
+      },
+      {
+        "name": "BG2 팟캐스트 (거스트너·걸리)",
+        "who": "BG2 팟캐스트 (거스트너·걸리)",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://anchor.fm/s/f06c2370/podcast/rss"
+      },
+      {
+        "name": "Invest Like the Best (팟캐스트)",
+        "who": "Invest Like the Best (팟캐스트)",
+        "grade": "S",
+        "kind": "guru",
+        "url": "https://feeds.megaphone.fm/CLS2859450455"
+      },
+      {
+        "name": "하워드 막스 · 오크트리 메모",
+        "who": "하워드 막스 · 오크트리 메모",
+        "grade": "S",
+        "kind": "guru_html",
+        "url": "https://www.oaktreecapital.com/insights/memos",
+        "pattern": "href=\"(/insights/memo/[a-z0-9\\-]+)\""
       }
     ],
     "hot_min_sources": 2,
