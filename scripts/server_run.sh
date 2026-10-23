@@ -5,7 +5,12 @@ set -u
 D=/home/kiwoombot/newsbot-data
 R=/home/kiwoombot/claude-macro-telegram
 J=/home/kiwoombot/kiwoom-telegram-bot/.env
-set -a; . "$D/.secrets"; set +a
+# 값에 띄어쓰기가 있어도(SEC_USER_AGENT 등) 깨지지 않게 한 줄씩 읽는다 — `. 파일`(source)로 읽으면 공백 뒤가 명령으로 실행됨
+while IFS= read -r line || [ -n "$line" ]; do
+  case "$line" in ''|\#*) continue;; esac
+  k="${line%%=*}"; v="${line#*=}"; v="${v%$''}"
+  [ -n "$v" ] && export "$k=$v"
+done < "$D/.secrets"
 if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then echo "뉴스봇 토큰 미설정 — 건너뜀"; exit 0; fi
 # 채팅 ID를 따로 적지 않았으면 LP 개인 채팅(자비스 허용 목록의 첫 번째)으로 보낸다 — 개인 채팅의 chat_id 는 사용자 ID라 봇이 달라도 같다
 [ -n "${TELEGRAM_CHAT_ID:-}" ] || export TELEGRAM_CHAT_ID=$(grep '^TELEGRAM_ALLOWED_CHAT_IDS=' "$J" | cut -d= -f2 | cut -d, -f1 | tr -d ' ')
