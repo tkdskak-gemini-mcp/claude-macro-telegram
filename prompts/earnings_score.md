@@ -14,7 +14,7 @@
 {{CHECKS}}
 
 ## 작업 방법
-1. 파일이 크면 전부 읽지 말고 Grep으로 먼저 찾은 뒤(`Revenue`, `Gross`, `Three Months Ended`, `guidance`, `outlook`, `Segment`, `related part`, `stock-based`, `receivable`, `backlog`, `remaining performance`, `valuation allowance`, `unrealized` 등) 필요한 부분만 Read 한다.
+1. 파일이 크면 전부 읽지 말고 Grep으로 먼저 찾은 뒤(`Revenue`, `Gross`, `Three Months Ended`, `guidance`, `outlook`, `Segment`, `related part`, `stock-based`, `receivable`, `backlog`, `remaining performance`, `valuation allowance`, `unrealized`, `depreciation`, `useful life`, `repurchase`, `shares outstanding`, `capital expenditures` 등) 필요한 부분만 Read 한다.
 2. **원문에 있는 숫자만 쓴다.** 원문에 없으면 "원문에 없음"이라고 쓴다. 추측·기억으로 숫자를 채우지 않는다. 계산한 값은 계산식을 짧게 붙인다.
 3. 웹 검색은 하지 않는다. 주가·목표가·밸류에이션(PE·P/S·52주 고점)은 **절대 쓰지 않는다** — 이 채점은 펀더멘털(3층 중 ①성장성·③악화)만 본다.
 4. 매수·매도·트림을 권하지 않는다. 결론은 "③층 재검토 필요 / 불필요 / 판정 보류" 중 하나다.
@@ -37,12 +37,23 @@
 - 매출채권이 매출보다 빨리 느는가 (DSO)
 - 기간 혼용 (TTM과 분기를 섞어 비교하지 않았는가)
 
+## 설비투자·자본 배분 점검 (10/23 추가 — 원문에 있을 때만, 없으면 한 줄로 "원문에 없음")
+- 감가상각비(D&A) 증가율 vs 매출 증가율: 감가상각이 더 빠르면 「이익률 압박 진행」으로 명시(계산식 첨부)
+- 서버·네트워크 장비 **내용연수(useful life) 변경**: 늘렸으면 이익 부풀림 가능성, 줄였으면 보수화 — 변경 효과 금액이 있으면 적는다
+- 설비투자(capex) 가이던스와 그 재원(영업현금 / 회사채 / 리스 / 주식)
+- 자사주 매입 중단·축소, 신주·새 주식 종류 발행, 희석주식수 증가율(전년 대비)
+
 ## 출력 형식 (이 형식 그대로, 마크다운 표·굵은 글씨 금지, 1,800자 이내)
 📊 핵심 숫자 (원문)
  · 매출 ... (YoY ..., 직전 분기 YoY ...)
  · 매출총이익률 ... · 영업이익률 ...
  · 가이던스: ...
  · (그 밖에 thesis에 필요한 숫자 1~2개)
+
+🏗 설비투자·자본 배분
+ · 감가상각 증가율 ... vs 매출 증가율 ... → 이익률 압박 [진행/없음/원문에 없음]
+ · 내용연수 변경: ... · capex 가이던스·재원: ...
+ · 자사주·희석: ...
 
 🚨 6대 신호: 점등 N/6 (판정 불가 K)
  ① ... 🟢/🔴/⚪ — 근거
