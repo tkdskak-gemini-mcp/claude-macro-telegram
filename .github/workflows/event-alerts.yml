@@ -14,11 +14,10 @@ on:
         description: "(시험) 이 종목의 최근 실적 공시를 Claude로 채점 — 티커 입력, 비우면 안 함"
         type: string
         default: ""
-  schedule:
-    # 15분마다. ⚠️ 정각·15/30/45분은 GitHub 큐가 가장 혼잡해 크게 밀린다
-    # (2026-09-11~14 실측: */15로 돌렸더니 실제 간격 중앙값 164분·최대 339분)
-    # → 혼잡하지 않은 분(7·22·37·52)으로 옮겨 지연을 줄인다
-    - cron: "7,22,37,52 * * * *"
+  # 10/23: 예약 실행은 자비스 서버(Lightsail) newsbot.timer 로 이전 — GitHub 예약은 실제 간격 중앙값 4.5시간(설계 15분)이라 끔.
+  #        수동 실행(workflow_dispatch)은 남겨 둔다(서버 장애 시 비상용). 다시 켜려면 아래 두 줄 주석 해제.
+  # schedule:
+  #   - cron: "7,22,37,52 * * * *"
 
 concurrency:
   group: event-alerts
