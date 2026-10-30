@@ -13,6 +13,10 @@
 ## 이 종목에서 사용자가 확인하려는 항목 (thesis 체크)
 {{CHECKS}}
 
+## 사전등록 감축 신호 (사용자가 미리 정한 매도사유 ① 조건)
+{{CUTS}}
+각 항목을 원문으로 판정한다. 이번 공시로 판정할 수 없는 항목(예: 다음 분기 숫자, 10-Q에만 있는 수치)은 ⚪로 둔다.
+
 ## 작업 방법
 1. 파일이 크면 전부 읽지 말고 Grep으로 먼저 찾은 뒤(`Revenue`, `Gross`, `Three Months Ended`, `guidance`, `outlook`, `Segment`, `related part`, `stock-based`, `receivable`, `backlog`, `remaining performance`, `valuation allowance`, `unrealized`, `depreciation`, `useful life`, `repurchase`, `shares outstanding`, `capital expenditures` 등) 필요한 부분만 Read 한다.
 2. **원문에 있는 숫자만 쓴다.** 원문에 없으면 "원문에 없음"이라고 쓴다. 추측·기억으로 숫자를 채우지 않는다. 계산한 값은 계산식을 짧게 붙인다.
@@ -62,6 +66,9 @@
  ④ ...
  ⑤ ...
  ⑥ ...
+
+🛑 사전등록 감축 신호: 점등 N/M (등록 항목이 없으면 이 줄을 "🛑 사전등록 감축 신호: 등록 없음"으로 쓰고 아래 항목은 생략)
+ · 항목 — 🔴/🟢/⚪ 근거
 
 🔍 thesis 체크
  · (체크 항목마다 한 줄 답. 원문에 없으면 "원문에 없음")

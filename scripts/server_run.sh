@@ -15,7 +15,7 @@ if [ -z "${TELEGRAM_BOT_TOKEN:-}" ]; then echo "뉴스봇 토큰 미설정 — �
 # 채팅 ID를 따로 적지 않았으면 LP 개인 채팅(자비스 허용 목록의 첫 번째)으로 보낸다 — 개인 채팅의 chat_id 는 사용자 ID라 봇이 달라도 같다
 [ -n "${TELEGRAM_CHAT_ID:-}" ] || export TELEGRAM_CHAT_ID=$(grep '^TELEGRAM_ALLOWED_CHAT_IDS=' "$J" | cut -d= -f2 | cut -d, -f1 | tr -d ' ')
 [ -n "${CLAUDE_CODE_OAUTH_TOKEN:-}" ] || export CLAUDE_CODE_OAUTH_TOKEN=$(grep '^CLAUDE_CODE_OAUTH_TOKEN=' "$J" | cut -d= -f2-)
-export ALERT_STATE="$D/state.json" PATH="/home/kiwoombot/.local/bin:$PATH" PYTHONIOENCODING=utf-8
+export ALERT_STATE="$D/state.json" JARVIS_SNAP=/home/kiwoombot/kiwoom-telegram-bot/data/snapshots.db PATH="/home/kiwoombot/.local/bin:$PATH" PYTHONIOENCODING=utf-8
 git -C "$R" pull -q --ff-only || echo "git pull 실패 — 기존 코드로 계속"
 OUT=$(mktemp); export GITHUB_OUTPUT="$OUT"
 cd "$R"

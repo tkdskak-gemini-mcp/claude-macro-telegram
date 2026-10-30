@@ -24,6 +24,39 @@ from datetime import datetime, timedelta, timezone
 HERE = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(HERE, "config.json"), encoding="utf-8") as f:
     CFG = json.load(f)
+
+
+def _sync_main_holdings():
+    """서버에 자비스 잔고 스냅샷(JARVIS_SNAP)이 있으면 「메인」 보유 목록을 그것으로 맞춘다.
+    config.json의 「메인」은 손으로 고치다 낡는다(10/30: 매도한 NOW·SE가 남고 META·ORCL·CHYM·YOU가 빠져 실적 채점 누락)."""
+    p = os.environ.get("JARVIS_SNAP")
+    if not p or not os.path.exists(p):
+        return
+    import sqlite3
+    try:
+        con = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+        d = con.execute("SELECT MAX(d) FROM holdings").fetchone()[0]
+        codes = {r[0] for r in con.execute("SELECT code FROM holdings WHERE d=? AND qty>0", (d,))}
+        con.close()
+    except Exception as e:  # noqa: BLE001
+        print(f"자비스 잔고 스냅샷 읽기 실패 — config.json 그대로 사용: {e}", file=sys.stderr)
+        return
+    codes -= set(CFG.get("hedges", ["SGOV", "GLD", "DBMF"]))
+    if not codes:
+        return
+    h = CFG["us_holdings"]
+    for t in list(h):
+        if "메인" in h[t] and t not in codes:
+            h[t] = [x for x in h[t] if x != "메인"]
+            if not h[t]:
+                del h[t]
+    for t in sorted(codes):
+        h.setdefault(t, [])
+        if "메인" not in h[t]:
+            h[t].append("메인")
+
+
+_sync_main_holdings()
 STATE_PATH = os.environ.get("ALERT_STATE", os.path.join(HERE, "state.json"))
 SEC_UA = os.environ.get("SEC_USER_AGENT", "")
 DART_KEY = os.environ.get("DART_API_KEY", "")

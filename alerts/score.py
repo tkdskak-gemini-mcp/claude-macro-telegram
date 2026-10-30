@@ -132,7 +132,7 @@ def xbrl_table(cik):
     return "\n".join(out[:1] + out[-9:] if len(out) > 10 else out)
 
 
-def build_prompt(job, doc_path, table, checks):
+def build_prompt(job, doc_path, table, checks, cuts=()):
     with open(os.path.join(REPO, "prompts", "earnings_score.md"), encoding="utf-8") as f:
         tpl = f.read()
     kind = ("실적 보도자료(8-K). 10-Q는 아직 제출 전" if job["form"] == "8-K"
@@ -140,7 +140,8 @@ def build_prompt(job, doc_path, table, checks):
     rep = {"{{TICKER}}": job["ticker"], "{{OWNER}}": job["owner"], "{{FORM}}": job["form"],
            "{{KIND}}": kind, "{{FILED}}": job["filed"], "{{URL}}": job["url"], "{{DOC_PATH}}": doc_path,
            "{{XBRL_TABLE}}": table,
-           "{{CHECKS}}": "\n".join(f"- {c}" for c in checks) or "- (등록된 체크 항목 없음 — 6대 신호만 채점)"}
+           "{{CHECKS}}": "\n".join(f"- {c}" for c in checks) or "- (등록된 체크 항목 없음 — 6대 신호만 채점)",
+           "{{CUTS}}": "\n".join(f"- {c}" for c in cuts) or "- (등록 없음)"}
     for k, v in rep.items():
         tpl = tpl.replace(k, v)
     return tpl
@@ -159,8 +160,24 @@ def run_claude(prompt, workdir):
     return out
 
 
+def log_result(job, result):
+    """채점 결과 요약을 score_log.jsonl에 남긴다 — 자비스가 읽어 보유 종목의 매도사유 ① 후보를 알린다(10/30)."""
+    m6 = re.search(r"6대 신호:\s*점등\s*(\d+)\s*/\s*6", result)
+    mc = re.search(r"감축 신호:\s*점등\s*(\d+)\s*/\s*(\d+)", result)
+    concl = re.search(r"결론:\s*(.+)", result)
+    rec = {"ts": datetime.now().strftime("%Y-%m-%d %H:%M"), "ticker": job["ticker"], "form": job["form"],
+           "acc": job["acc"], "owner": job["owner"], "filed": job["filed"], "url": job["url"],
+           "lit6": int(m6.group(1)) if m6 else None,
+           "cut_lit": int(mc.group(1)) if mc else 0, "cut_total": int(mc.group(2)) if mc else 0,
+           "conclusion": concl.group(1).strip() if concl else "", "excerpt": result[:3000]}
+    path = os.path.join(os.path.dirname(os.path.abspath(core.STATE_PATH)), "score_log.jsonl")
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
 def score_job(job, dry, prepare_only):
-    checks = core.load_thesis().get("tickers", {}).get(job["ticker"], {}).get("checks", [])
+    entry = core.load_thesis().get("tickers", {}).get(job["ticker"], {})
+    checks, cuts = entry.get("checks", []), entry.get("cut", [])
     text = filing_documents(job)
     if job["form"] == "6-K" and not EARNINGS_6K.search(text[:20000]):
         return None  # 실적과 무관한 6-K
@@ -169,11 +186,16 @@ def score_job(job, dry, prepare_only):
     with open(doc_path, "w", encoding="utf-8") as f:
         f.write(text)
     table = xbrl_table(job["cik"])
-    prompt = build_prompt(job, "filing.txt", table, checks)
+    prompt = build_prompt(job, "filing.txt", table, checks, cuts)
     if prepare_only:
         print(prompt[:3000], f"\n... (원문 {len(text):,}자 → {doc_path})")
         return None
     result = run_claude(prompt, workdir)
+    if not dry:
+        try:
+            log_result(job, result)
+        except OSError as e:
+            print(f"채점 기록 실패(알림은 계속): {e}", file=sys.stderr)
     concl = re.search(r"결론:\s*(.+)", result)
     ask = (f"{job['ticker']} {job['form']} 실적 채점 결과({concl.group(1)[:40] if concl else '확인'}) 검토 — "
            f"원문으로 ③층 훼손 최종 판정하고 thesis 메모리 갱신해줘: {job['url']}")
